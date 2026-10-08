@@ -1,0 +1,7 @@
+{
+  "length_m": 1.0,
+  "area_m2": 0.001,
+  "youngs_modulus_pa": 200000000000.0,
+  "force_n": 1000.0,
+  "n_points": 201
+}
