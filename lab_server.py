@@ -1,9 +1,12 @@
-"""Local-only virtual lab. Run: python lab_server.py (opens your browser)."""
+"""Virtual lab: local by default, or --host 0.0.0.0 --no-browser for hosting."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import io
+import os
+from http.cookies import SimpleCookie
+import shutil
 import json
 from pathlib import Path
 import secrets
@@ -21,11 +24,32 @@ from stress import invariants
 
 ROOT=Path(__file__).resolve().parent
 WEB=ROOT/'web'
-RUNS=ROOT/'outputs'/'interactive'
+RUNS=Path(os.environ.get('LAB_RUNS_DIR',str(ROOT/'outputs'/'interactive'))).resolve()
 POOL=ThreadPoolExecutor(max_workers=1)
 LOCK=threading.Lock()
-STATE={'status':'idle','stage':'Ready','job_id':None,'result':None,'error':None}
-TOKEN=secrets.token_urlsafe(24)
+SESSIONS={}
+COOKIE_NAME='lab_session'
+SESSION_TTL=6*60*60
+MAX_SESSIONS=64
+MAX_SAVED_RUNS=5
+MAX_PENDING_JOBS=4
+PENDING_JOBS=0
+
+
+def new_session():
+    return dict(status='idle',stage='Ready',job_id=None,result=None,error=None,
+                token=secrets.token_urlsafe(24),updated=time.monotonic(),runs=set())
+
+
+def prune_sessions():
+    # Called under LOCK. Active jobs cannot expire while queued or executing.
+    cutoff=time.monotonic()-SESSION_TTL
+    expired=[sid for sid,state in SESSIONS.items()
+             if state['updated']<cutoff and state['status']!='running']
+    for sid in expired:
+        state=SESSIONS.pop(sid)
+        for run_id in state['runs']: shutil.rmtree(RUNS/run_id,ignore_errors=True)
+
 
 
 def clean_json(value):
@@ -88,39 +112,80 @@ def make_payload(b,run_id):
     return clean_json(p)
 
 
-def execute(config,run_id):
+def execute(config,run_id,session_id):
+    global PENDING_JOBS
+    state=SESSIONS[session_id]
     try:
         started=time.perf_counter()
-        with LOCK: STATE['stage']='Generating images and solving subpixel DIC…'
+        with LOCK: state['stage']='Generating images and solving subpixel DIC…'
         directory=RUNS/run_id
         b=run_experiment(config,directory)
         payload=make_payload(b,run_id)
         payload['elapsed_s']=round(time.perf_counter()-started,2)
         (directory/'interactive_result.json').write_text(json.dumps(payload,allow_nan=False))
-        with LOCK: STATE.update(status='done',stage='Experiment complete',result=payload,error=None)
+        with LOCK:
+            state.update(status='done',stage='Experiment complete',result=payload,error=None,updated=time.monotonic())
+            while len(state['runs'])>MAX_SAVED_RUNS:
+                oldest=min(state['runs']-{run_id})
+                state['runs'].remove(oldest)
+                shutil.rmtree(RUNS/oldest,ignore_errors=True)
     except Exception as error:
         traceback.print_exc()
-        with LOCK: STATE.update(status='error',stage='Experiment could not complete',error=str(error))
+        with LOCK: state.update(status='error',stage='Experiment could not complete',error=str(error),updated=time.monotonic())
+    finally:
+        with LOCK: PENDING_JOBS-=1
 
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(WEB),**kwargs)
     def log_message(self,format,*args): pass
+    def end_headers(self):
+        if getattr(self,'new_cookie',None):
+            self.send_header('Set-Cookie',self.new_cookie)
+            self.new_cookie=None
+        self.send_header('X-Content-Type-Options','nosniff')
+        super().end_headers()
+    def session(self,create=False):
+        cookie=SimpleCookie()
+        try: cookie.load(self.headers.get('Cookie',''))
+        except Exception: pass
+        item=cookie.get(COOKIE_NAME);sid=item.value if item else None
+        with LOCK:
+            prune_sessions()
+            state=SESSIONS.get(sid)
+            if state is None and create:
+                if len(SESSIONS)>=MAX_SESSIONS: return None,None
+                sid=secrets.token_urlsafe(32);state=new_session();SESSIONS[sid]=state
+                secure='; Secure' if os.environ.get('LAB_COOKIE_SECURE')=='1' else ''
+                self.new_cookie=f'{COOKIE_NAME}={sid}; Path=/; HttpOnly; SameSite=Lax{secure}'
+            if state is not None: state['updated']=time.monotonic()
+        return sid,state
+    def do_HEAD(self):
+        # Do not let the inherited file handler bypass run access checks.
+        self.send_error(405)
+
     def json_response(self,data,status=200):
         raw=json.dumps(data,allow_nan=False).encode()
         self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
     def do_GET(self):
         path=urllib.parse.urlparse(self.path).path
-        if path=='/api/settings': return self.json_response(dict(defaults=DEFAULTS,materials=MATERIALS,token=TOKEN))
+        if path=='/healthz': return self.json_response({'status':'ok'})
+        if path.startswith('/api/'):
+            sid,state=self.session(create=True)
+            if state is None: return self.json_response({'error':'The lab is busy. Please try again later.'},503)
+        if path=='/api/settings': return self.json_response(dict(defaults=DEFAULTS,materials=MATERIALS,token=state['token']))
         if path=='/api/status':
-            with LOCK: snapshot={k:v for k,v in STATE.items() if k!='result'}
+            with LOCK: snapshot={k:state[k] for k in ('status','stage','job_id','error')}
             return self.json_response(snapshot)
         if path=='/api/result':
-            with LOCK: payload=STATE['result']
+            with LOCK: payload=state['result']
             return self.json_response(payload)
         if path.startswith('/runs/'):
             parts=path.split('/')
             if len(parts)!=4 or not all(ch.isalnum() or ch=='-' for ch in parts[2]): return self.send_error(404)
+            sid,state=self.session()
+            with LOCK: owned=state is not None and parts[2] in state['runs']
+            if not owned: return self.send_error(404)
             folder=RUNS/parts[2]
             if parts[3]=='download.zip' and folder.is_dir():
                 memory=io.BytesIO()
@@ -131,35 +196,47 @@ class Handler(SimpleHTTPRequestHandler):
             allowed={'reference.png','deformed.png','reference_mask.png','deformed_mask.png','images_and_error.png','field_comparison.png','report.html','config.json','summary.json','dic_displacements.csv','mechanical_fields.csv','errors.csv'}
             if parts[3] not in allowed or not (folder/parts[3]).is_file(): return self.send_error(404)
             f=folder/parts[3];raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
+        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js'): return self.send_error(404)
         return super().do_GET()
     def do_POST(self):
+        global PENDING_JOBS
         if self.path!='/api/run': return self.send_error(404)
-        if self.headers.get('X-Lab-Token')!=TOKEN: return self.json_response({'error':'Reload the lab page and try again.'},403)
+        sid,state=self.session()
+        if state is None or not secrets.compare_digest(self.headers.get('X-Lab-Token',''),state['token']): return self.json_response({'error':'Reload the lab page and try again.'},403)
+        origin=self.headers.get('Origin')
+        if origin and urllib.parse.urlparse(origin).netloc!=self.headers.get('Host'):
+            return self.json_response({'error':'Request origin does not match this lab.'},403)
         try:
             length=int(self.headers.get('Content-Length','0'))
             if not 0<length<20000: raise ValueError('Invalid request size.')
-            data=json.loads(self.rfile.read(length));config=build_config(data)
-        except (ValueError,TypeError,KeyError) as error: return self.json_response({'error':str(error)},400)
+            data=json.loads(self.rfile.read(length))
+            if not isinstance(data,dict): raise ValueError('Settings must be a JSON object.')
+            config=build_config(data)
+        except (ValueError,TypeError,KeyError,UnicodeError) as error: return self.json_response({'error':str(error)},400)
         with LOCK:
-            if STATE['status']=='running': return self.json_response({'error':'An experiment is already running.'},409)
+            if state['status']=='running': return self.json_response({'error':'An experiment is already running.'},409)
+            if PENDING_JOBS>=MAX_PENDING_JOBS: return self.json_response({'error':'The lab is busy. Please try again shortly.'},429)
+            PENDING_JOBS+=1
             run_id=time.strftime('%Y%m%d-%H%M%S')+'-'+secrets.token_hex(3)
-            STATE.update(status='running',stage='Preparing the experiment…',job_id=run_id,error=None)
-        POOL.submit(execute,config,run_id)
+            state.update(status='running',stage='Queued for calculation…',job_id=run_id,error=None)
+            state['runs'].add(run_id)
+        POOL.submit(execute,config,run_id,sid)
         return self.json_response({'job_id':run_id},202)
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port',type=int,default=8765)
+    parser.add_argument('--port',type=int,default=int(os.environ.get('PORT','8765')))
+    parser.add_argument('--host',default='0.0.0.0' if os.environ.get('PORT') else '127.0.0.1')
     parser.add_argument('--no-browser',action='store_true')
     args=parser.parse_args()
     RUNS.mkdir(parents=True,exist_ok=True)
-    try: server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
+    try: server=ThreadingHTTPServer((args.host,args.port),Handler)
     except OSError as error:
         parser.exit(1,f'Cannot open port {args.port}: {error}\nTry: python lab_server.py --port 8766\n')
     url=f'http://127.0.0.1:{server.server_address[1]}'
     print(f'Virtual Solid Mechanics Lab → {url}\nKeep this terminal open. Press Ctrl+C to stop.',flush=True)
-    if not args.no_browser: threading.Timer(.5,lambda:webbrowser.open(url)).start()
+    if not args.no_browser and not os.environ.get('PORT'): threading.Timer(.5,lambda:webbrowser.open(url)).start()
     try: server.serve_forever()
     except KeyboardInterrupt: print('\nClosing lab. Waiting for any active experiment to finish…')
     finally: server.server_close();POOL.shutdown(wait=True)
