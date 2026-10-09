@@ -1,5 +1,8 @@
 **Purpose and separation of information**
 
+The camera/DIC workflow below applies to flat specimens. The separate circular
+shaft torsion experiment is analytical only and generates no camera or DIC data.
+
 The analytical model generates a reference/deformed image pair. DIC receives
 only the two images, image-support masks and its own measurement settings.
 It never receives the true displacement. Analytical fields are evaluated again
@@ -28,7 +31,7 @@ including when horizontal and vertical pixel sizes differ.
 
 **1. Analytical mechanics**
 
-All three 2D benchmarks use linear isotropic plane stress. E is Young's modulus,
+All four flat 2D benchmarks use linear isotropic plane stress. E is Young's modulus,
 nu Poisson's ratio, and G = E / [2(1 + nu)].
 
 For uniaxial tension with remote stress S:
@@ -241,3 +244,82 @@ The default robustness study uses the axial bar to isolate imaging effects.
 These checks establish implementation consistency for the included scope.
 Synthetic interpolation, finite resolution and local field fitting remain
 measurement limitations, shown explicitly by the saved error reports.
+
+
+**Pure bending by equal and opposite end moments**
+
+For a rectangular beam of length L, height h, thickness b, I=b h³/12 and
+signed moment M, define k=M/(EI) and xi=x-L/2:
+
+```text
+u(x,y) = -k xi y
+v(x,y) = k [xi² - (L/2)² + nu y²] / 2
+sigma_xx = -M y/I
+sigma_yy = tau_xy = 0
+```
+
+These displacements give exx=-k y, eyy=nu k y and engineering gamma_xy=0,
+matching plane-stress elasticity. The Poisson term in v is retained. Removing
+rigid motion sets v(0,0)=v(L,0)=0 and u(L/2,0)=0; this is a reference choice,
+not a physical rigid clamp. End stress resultants are -M about z at x=0 and +M
+at x=L; net force is zero. Top and bottom surfaces are traction-free. Positive
+M puts y>0 in compression and y<0 in tension. This small-strain solution excludes
+local load-introduction effects, yielding and buckling.
+
+**Analytical circular-shaft torsion**
+
+For solid radius R, length L, torque T about +x and isotropic E, nu:
+
+```text
+G = E / [2(1+nu)]
+J = pi R^4 / 2
+ theta(x) = T x/(G J)
+tau_x_theta(r) = T r/J
+sigma_von_mises(r) = sqrt(3) abs(tau_x_theta(r))
+```
+
+The left reference section has theta(0)=0; its reaction balances the torque at
+the right end. Positive torque rotates +y toward +z. The maximum shear is |T|R/J
+and the end angle is TL/(GJ). Stress is constant along x and increases linearly
+with r, so a uniformly red outer surface is expected. End caps and the separate
+cross-section view display its radial gradient. At zero torque all stresses and
+angles are zero. Negative torque changes signed angle/shear, not von Mises stress.
+
+The renderer rotates each circular section, keeping its radius constant. The
+visual angle is theta times the magnification and playback fraction. This is a
+display transformation of a small-strain analytical solution, not a nonlinear
+solid solver. Curves and reported values use actual full load. Limits enforce
+length >= 4 radii, maximum shear strain <= 2%, and |end angle| <= 0.35 rad;
+local end effects and material failure are excluded. No DIC estimates, synthetic
+speckles, error claims or noise comparison are produced for this case.
+
+**Interactive line comparisons and paired noise**
+
+Profiles select an actual candidate pixel row or column. Their horizontal axis
+is the corresponding physical x or y coordinate in mm, sorted in ascending order.
+Analytical and measured values are evaluated at those same centres. Rejected or
+nonfinite estimates break measured curves; segments crossing the circular hole
+are also broken. Connecting samples does not create new estimates. The CSV stores
+actual centres, analytical values and available measurements, with empty cells
+for unavailable values. Physical displacement components use x-right/y-up signs.
+
+Paired runs share mechanics, geometry, texture seed, camera seed, blur, brightness,
+image dimensions, DIC settings and strain windows. Only Gaussian noise standard
+deviation changes to zero for the baseline. Reference/deformed noise remains
+independent within a run. Camera intensities are in [0,1] before 8-bit quantization;
+noise is clipped along with the image, so saturation can affect the experiment.
+Baseline is not mathematically error-free: interpolation, quantization and
+selected blur/brightness remain. Repeating identical inputs reproduces the pair.
+
+Each field's paired errors use the intersection of its finite, accepted centres
+in both runs. Coverage counts are shown separately. Line statistics apply this
+same intersection restricted to the selected line. For n common points,
+RMSE=sqrt(sum((measured-truth)^2)/n) and maximum error=max(abs(measured-truth)).
+With n=0, errors are unavailable rather than zero. The top displacement card is
+vector error; the selected displacement-magnitude field uses scalar magnitude
+error. A single noise realization need not worsen every metric.
+
+Mechanics references: MIT OpenCourseWare, Mechanics of Materials, torsion notes
+(https://ocw.mit.edu/courses/3-11-mechanics-of-materials-fall-1999/0e0845a9e3abe430080eaffb0c5015ba_MIT3_11F99_torsion.pdf),
+and Unified Engineering Materials and Structures, bending lectures
+(https://ocw.mit.edu/courses/16-001-unified-engineering-materials-and-structures-fall-2021/mit16_001_f21_lec30lec31lec32.pdf).

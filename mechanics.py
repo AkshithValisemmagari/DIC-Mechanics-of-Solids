@@ -44,7 +44,7 @@ class Benchmark:
         self.nu = float(config['material']['poisson_ratio'])
         if self.E <= 0 or not np.isfinite(self.E) or not -1 < self.nu < 0.5:
             raise ValueError('Require E > 0 and -1 < nu < 0.5.')
-        if self.name not in ('axial_bar', 'cantilever', 'plate_with_hole'):
+        if self.name not in ('axial_bar', 'cantilever', 'plate_with_hole', 'pure_bending'):
             raise ValueError('Unknown benchmark.')
         self.bounds = np.array(config['domain_m'], dtype=float)
         if self.bounds.shape != (4,) or not np.all(np.isfinite(self.bounds)):
@@ -54,13 +54,13 @@ class Benchmark:
         self.hole_radius = float(config.get('hole_radius_m', 0))
         if self.name == 'plate_with_hole' and self.hole_radius <= 0:
             raise ValueError('Hole radius must be positive.')
-        if self.name == 'cantilever':
+        if self.name in ('cantilever', 'pure_bending'):
             self.L = float(config['length_m'])
             self.h = float(config['height_m'])
             self.I = float(config['thickness_m']) * self.h**3 / 12
             if min(self.L, self.h, self.I) <= 0:
                 raise ValueError('Beam dimensions must be positive.')
-        load = config.get('remote_stress_pa', config.get('force_n'))
+        load = config.get('remote_stress_pa', config.get('moment_nm', config.get('force_n')))
         if load is None or not np.isfinite(load):
             raise ValueError('A finite load is required.')
 
@@ -75,6 +75,12 @@ class Benchmark:
         if self.name == 'axial_bar':
             e = self.c['remote_stress_pa'] / self.E
             return e*x, -self.nu*e*y
+        if self.name == 'pure_bending':
+            # A rigid translation/rotation is fixed by v(0,0)=v(L,0)=0,
+            # u(L/2,0)=0. These set the display reference, not end clamps.
+            k = self.c['moment_nm']/(self.E*self.I)
+            xi = x-self.L/2
+            return -k*xi*y, k*(xi*xi-(self.L/2)**2+self.nu*y*y)/2
         if self.name == 'cantilever':
             # Saint-Venant plane-stress end-shear solution, not an exact clamp.
             q = self.c['force_n'] / (self.E*self.I)
@@ -103,6 +109,8 @@ class Benchmark:
         zero = np.zeros_like(x)
         if self.name == 'axial_bar':
             return zero+self.c['remote_stress_pa'], zero, zero
+        if self.name == 'pure_bending':
+            return -self.c['moment_nm']*y/self.I, zero, zero
         if self.name == 'cantilever':
             q = self.c['force_n']/self.I
             return -q*(self.L-x)*y, zero, q*(self.h*self.h/4-y*y)/2

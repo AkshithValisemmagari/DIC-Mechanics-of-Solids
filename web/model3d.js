@@ -1,14 +1,15 @@
-/* Local 3D renderer for the deformation panel only.
- * A perspective camera displays the existing in-plane solution extruded through
- * the entered thickness. No out-of-plane mechanics are added or inferred.
+/* Local perspective renderer for the deformation panel.
+ * Flat specimens extrude their in-plane solution through the entered thickness.
+ * Circular shafts use the analytical cross-section rotation theta(x).
  * No network libraries or WebGL support required.
  */
 window.Specimen3D=(()=>{
   const view={yaw:-.52,pitch:.40,zoom:1};
   let cached=null,geometry=null,boundCanvas=null,redraw=null,drag=null;
-  const stressIndex={stress_xx:5,stress_yy:6,tau:7,von_mises:8};
+  const stressIndex={stress_xx:5,stress_xx_signed:5,stress_yy:6,tau:7,von_mises:8};
   function stressColor(value,max){const t=max>0?clamp(value/max,0,1):0,stops=[[48,117,232],[33,196,204],[244,211,70],[247,135,49],[229,55,54]],p=t*4,i=Math.min(3,Math.floor(p)),f=p-i;return stops[i].map((v,k)=>Math.round(v+(stops[i+1][k]-v)*f));}
-  function stressRange(data,mode,phase){const k={stress_xx:0,stress_yy:1,tau:2,von_mises:3}[mode];if(k==null||!data?.stress_surface)return null;const max=data.stress_surface.reduce((a,p)=>Math.max(a,Math.abs(p[k])),0);return{max,peak:max*phase};}
+  function signedColor(value,max){const t=max?Math.min(1,Math.abs(value)/max):0,a=[243,241,232],b=value<0?[53,122,190]:[229,55,54];return a.map((v,i)=>Math.round(v+(b[i]-v)*t));}
+  function stressRange(data,mode,phase){const k={stress_xx:0,stress_xx_signed:0,stress_yy:1,tau:2,von_mises:3}[mode];if(data?.analysis_only){if(mode==='plain')return null;const max=(mode==='von_mises'?data.torsion.max_von_mises_pa:data.torsion.max_shear_pa)/1e6;return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}if(k==null||!data?.stress_surface)return null;const max=data.stress_surface.reduce((a,p)=>Math.max(a,Math.abs(p[k])),0);return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function reset(){Object.assign(view,{yaw:-.52,pitch:.40,zoom:1});redraw?.();}
   function front(){Object.assign(view,{yaw:0,pitch:0,zoom:1});redraw?.();}
@@ -35,7 +36,17 @@ window.Specimen3D=(()=>{
     const mix=k=>(1-t)*((1-s)*grid[iy][ix][k]+s*grid[iy][ix+1][k])+t*((1-s)*grid[iy+1][ix][k]+s*grid[iy+1][ix+1][k]);
     return[x,y,mix(2),mix(3)];
   }
+  function buildShaft(data){
+    const L=data.config.length_m,R=data.config.radius_m,T=data.config.torque_nm,J=data.torsion.polar_moment_m4,vertices=[],faces=[],edgeLoops=[],nx=40,na=64,nr=12;
+    function point(x,r,a){const tau=Math.abs(T)*r/J/1e6;vertices.push([x,r*Math.cos(a),r*Math.sin(a),0,0,0,0,tau,Math.sqrt(3)*tau]);return vertices.length-1;}
+    for(let i=0;i<=nx;i++)for(let j=0;j<na;j++)point(L*i/nx,R,2*Math.PI*j/na);
+    for(let i=0;i<nx;i++)for(let j=0;j<na;j++){const k=(j+1)%na;faces.push({ids:[i*na+j,i*na+k,(i+1)*na+k,(i+1)*na+j],kind:'face',marker:j%16===0});}
+    edgeLoops.push(Array.from({length:na},(_,j)=>j),Array.from({length:na},(_,j)=>nx*na+j));
+    for(const end of [0,L]){const centre=point(end,0,0),rings=[];for(let r=1;r<=nr;r++)rings.push(Array.from({length:na},(_,j)=>point(end,R*r/nr,2*Math.PI*j/na)));for(let r=0;r<nr;r++)for(let j=0;j<na;j++){const k=(j+1)%na;let ids=r?[rings[r-1][j],rings[r][j],rings[r][k],rings[r-1][k]]:[centre,rings[0][j],rings[0][k]];if(end===0)ids.reverse();faces.push({ids,kind:'face'});}}
+    return{vertices,faces,edgeLoops,thickness:2*R};
+  }
   function build(data){
+    if(data.analysis_only)return buildShaft(data);
     const vertices=[],faces=[],edgeLoops=[];
     const thickness=data.config.user_inputs.thickness_mm/1000;
     function add(p,z,stress){vertices.push([p[0],p[1],z,p[2],p[3],...(stress||[])]);return vertices.length-1;}
@@ -95,7 +106,8 @@ window.Specimen3D=(()=>{
     for(const p of fit){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
     const scale=.92*Math.min(Math.max(20,w-160)/Math.max(x1-x0,.05),Math.max(20,h-145)/Math.max(y1-y0,.05))*view.zoom;
     function project(p){const k=distance/(distance-p[2]);return[w/2+scale*(p[0]*k-(x0+x1)/2),h/2-scale*(p[1]*k-(y0+y1)/2),p[2]];}
-    const camera=vertices.map(p=>cameraPoint([p[0]+f*p[3],p[1]+f*p[4],p[2]])),screen=camera.map(project);
+    function deform(p,amount){if(!data.analysis_only)return[p[0]+amount*p[3],p[1]+amount*p[4],p[2]];const angle=data.torsion.twist_rate_rad_per_m*p[0]*amount;return[p[0],p[1]*Math.cos(angle)-p[2]*Math.sin(angle),p[1]*Math.sin(angle)+p[2]*Math.cos(angle)];}
+    const camera=vertices.map(p=>cameraPoint(deform(p,f))),screen=camera.map(project);
     const original=vertices.map(p=>project(cameraPoint(p.slice(0,3))));
     function line(points,close=true){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(close)ctx.closePath();}
     // Undeformed wire outline is a reference overlay, not a second solid.
@@ -106,12 +118,18 @@ window.Specimen3D=(()=>{
       // Back-face culling uses the perspective camera position.
       if(n[0]*(-centreFace[0])+n[1]*(-centreFace[1])+n[2]*(distance-centreFace[2])<=0)continue;
       const light=.40+.60*Math.max(0,n[0]*(-.25)+n[1]*.45+n[2]*.857);
-      const value=range?face.ids.reduce((sum,i)=>sum+Math.abs(vertices[i][stressKey])*phase,0)/face.ids.length:0;
-      const base=range?stressColor(value,range.max):face.kind==='side'?[44,139,124]:[105,205,164];
+      const value=range?face.ids.reduce((sum,i)=>sum+(mode==='stress_xx_signed'?vertices[i][stressKey]:Math.abs(vertices[i][stressKey]))*phase,0)/face.ids.length:0;
+      const base=range?(mode==='stress_xx_signed'?signedColor(value,range.max):stressColor(value,range.max)):face.kind==='side'?[44,139,124]:[105,205,164];
       const shade=range ? .86+.14*light : light;
       ctx.fillStyle=`rgb(${base.map(v=>Math.round(v*shade)).join(',')})`;
-      line(face.ids.map(i=>screen[i]));ctx.fill();ctx.strokeStyle=range?'rgba(17,47,48,.10)':face.kind==='side'?'rgba(99,193,161,.35)':'rgba(17,71,64,.28)';ctx.lineWidth=.5;ctx.stroke();
+      line(face.ids.map(i=>screen[i]));ctx.fill();ctx.strokeStyle=range?'rgba(17,47,48,.10)':face.kind==='side'?'rgba(99,193,161,.35)':'rgba(17,71,64,.28)';ctx.lineWidth=.5;ctx.stroke();if(face.marker){ctx.strokeStyle='rgba(246,249,225,.9)';ctx.lineWidth=2;line([screen[face.ids[0]],screen[face.ids[3]]],false);ctx.stroke();}
     }
+    function curvedArrow(worldPoints,label){const pp=worldPoints.map(q=>project(cameraPoint(q)));ctx.strokeStyle='#e4eeb7';ctx.fillStyle='#e4eeb7';ctx.lineWidth=2;line(pp,false);ctx.stroke();const a=pp[pp.length-2],b=pp[pp.length-1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;line([b,[b[0]-dx/len*9-dy/len*4,b[1]-dy/len*9+dx/len*4],[b[0]-dx/len*9+dy/len*4,b[1]-dy/len*9-dx/len*4]]);ctx.fill();ctx.font='10px system-ui';ctx.fillText(label,clamp(b[0]+5,15,w-110),clamp(b[1]-8,80,h-45));}
+    if(data.analysis_only){const R=data.config.radius_m,L=data.config.length_m,sign=Math.sign(data.config.torque_nm)||1;curvedArrow(Array.from({length:40},(_,j)=>{const a=sign*(j/39*1.6*Math.PI);return[L,R*1.35*Math.cos(a),R*1.35*Math.sin(a)];}),`${Number((data.config.torque_nm*phase).toFixed(2))} N·m`);ctx.fillStyle='#d6e9df';ctx.font='11px system-ui';ctx.fillText('Reference end: θ = 0',22,h-58);}
+    else if(data.config.benchmark==='pure_bending'){
+      const M=data.config.moment_nm,sign=Math.sign(M)||1,R=(b[3]-b[2])*.36;
+      for(const [x,direction]of[[b[0],-sign],[b[1],sign]]){const anchor=sample(data,x,0);curvedArrow(Array.from({length:35},(_,j)=>{const a=direction*(.15+j/34*1.5*Math.PI);return[x+f*anchor[2]+R*Math.cos(a),f*anchor[3]+R*Math.sin(a),thickness*.7];}),`${Number((direction*Math.abs(M)*phase).toFixed(2))} N·m`);}
+    }else{
     // Force arrow belongs to the same world coordinates as the specimen.
     const anchor=sample(data,b[1],0),beam=data.config.benchmark==='cantilever',span=(b[1]-b[0])*.11;
     const origin=[anchor[0]+f*anchor[2]+(beam?span*.3:span*.12),anchor[1]+f*anchor[3],thickness/2];
@@ -119,6 +137,7 @@ window.Specimen3D=(()=>{
     const aa=project(cameraPoint(origin)),bb=project(cameraPoint(end)),dx=bb[0]-aa[0],dy=bb[1]-aa[1],len=Math.hypot(dx,dy)||1;
     ctx.strokeStyle='#e4eeb7';ctx.fillStyle='#e4eeb7';ctx.lineWidth=2;line([aa,bb],false);ctx.stroke();line([bb,[bb[0]-dx/len*9-dy/len*4,bb[1]-dy/len*9+dx/len*4],[bb[0]-dx/len*9+dy/len*4,bb[1]-dy/len*9-dx/len*4]]);ctx.fill();
     ctx.font='10px system-ui';ctx.fillText(`${Number((data.config.load_description.force_n*phase).toFixed(1)).toLocaleString()} N`,clamp(bb[0]+8,20,w-100),clamp(bb[1]-9,75,h-58));
+    }
     // Orientation gizmo: x/y are in-plane; z is the displayed thickness axis.
     const o=[w-64,h-66];for(const [axis,color,label] of [[[1,0,0],'#df9e84','x'],[[0,1,0],'#a7dba1','y'],[[0,0,1],'#8fc3e1','z']]){const r=rotate(axis);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1.5;line([o,[o[0]+r[0]*26,o[1]-r[1]*26]],false);ctx.stroke();ctx.font='10px system-ui';ctx.fillText(label,o[0]+r[0]*34-3,o[1]-r[1]*34+3);}
   }

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import io
+from copy import deepcopy
 import os
 from http.cookies import SimpleCookie
 import shutil
@@ -98,6 +99,8 @@ def make_payload(b,run_id):
         uu,vv=model.displacement(xx,yy);hole=np.column_stack((xx,yy,uu,vv))
     d=b['dic'];true_inv=invariants(b['true_stress'])
     fields={
+        'u_mm':{'label':'Horizontal displacement u','unit':'mm','truth':b['true_disp'][:,0]*b['summary']['pixel_size_m'][0]*1000,'measured':d[:,2]*b['summary']['pixel_size_m'][0]*1000},
+        'v_mm':{'label':'Vertical displacement v (up positive)','unit':'mm','truth':-b['true_disp'][:,1]*b['summary']['pixel_size_m'][1]*1000,'measured':-d[:,3]*b['summary']['pixel_size_m'][1]*1000},
         'displacement':{'label':'Displacement magnitude','unit':'px','truth':np.linalg.norm(b['true_disp'],axis=1),'measured':np.linalg.norm(d[:,2:4],axis=1)},
         'strain_xx':{'label':'Axial strain','unit':'με','truth':b['true_strain'][:,0]*1e6,'measured':b['strain'][:,0]*1e6},
         'strain_yy':{'label':'Transverse strain','unit':'με','truth':b['true_strain'][:,1]*1e6,'measured':b['strain'][:,1]*1e6},
@@ -107,7 +110,7 @@ def make_payload(b,run_id):
         'tau':{'label':'Shear stress','unit':'MPa','truth':b['true_stress'][:,2]/1e6,'measured':b['stress'][:,2]/1e6},
         'principal':{'label':'Major in-plane principal stress','unit':'MPa','truth':true_inv[:,0]/1e6,'measured':b['invariants'][:,0]/1e6},
         'von_mises':{'label':'Von Mises stress','unit':'MPa','truth':true_inv[:,2]/1e6,'measured':b['invariants'][:,2]/1e6}}
-    p=dict(run_id=run_id,config=c,summary=b['summary'],mesh=mesh,boundary=boundary,hole=hole,
+    p=dict(run_id=run_id,asset_prefix=f'/runs/{run_id}/',config=c,summary=b['summary'],mesh=mesh,boundary=boundary,hole=hole,
            bounds=model.bounds,stress_surface=stress_surface(model),dic=d,fields=fields,true_disp=b['true_disp'],x_m=b['x'],y_m=b['y'])
     return clean_json(p)
 
@@ -117,10 +120,28 @@ def execute(config,run_id,session_id):
     state=SESSIONS[session_id]
     try:
         started=time.perf_counter()
-        with LOCK: state['stage']='Generating images and solving subpixel DIC…'
+        with LOCK: state['stage']='Solving analytical shaft torsion…' if config.get('analysis_only') else 'Generating images and solving subpixel DIC…'
         directory=RUNS/run_id
-        b=run_experiment(config,directory)
-        payload=make_payload(b,run_id)
+        if config.get('analysis_only'):
+            from torsion import run_torsion
+            payload=run_torsion(config,run_id,directory)
+        else:
+            b=run_experiment(config,directory)
+            payload=make_payload(b,run_id)
+            if config.get('compare_noise'):
+                from noise_comparison import compare_payloads, save_comparison
+                with LOCK: state['stage']='Running the identical specimen without added noise…'
+                baseline_config=deepcopy(config)
+                baseline_config['camera']['noise_std']=0
+                baseline_config['user_inputs']['noise_std']=0
+                baseline_config['compare_noise']=False
+                baseline_config['user_inputs']['compare_noise']=False
+                baseline=run_experiment(baseline_config,directory/'baseline')
+                base_payload=make_payload(baseline,run_id)
+                base_payload['asset_prefix']=f'/runs/{run_id}/baseline/'
+                payload['baseline']=base_payload
+                payload['noise_comparison']=compare_payloads(base_payload,payload)
+                save_comparison(payload['noise_comparison'],directory)
         payload['elapsed_s']=round(time.perf_counter()-started,2)
         (directory/'interactive_result.json').write_text(json.dumps(payload,allow_nan=False))
         with LOCK:
@@ -182,21 +203,25 @@ class Handler(SimpleHTTPRequestHandler):
             return self.json_response(payload)
         if path.startswith('/runs/'):
             parts=path.split('/')
-            if len(parts)!=4 or not all(ch.isalnum() or ch=='-' for ch in parts[2]): return self.send_error(404)
+            if len(parts) not in (4,5) or not all(ch.isalnum() or ch=='-' for ch in parts[2]): return self.send_error(404)
             sid,state=self.session()
             with LOCK: owned=state is not None and parts[2] in state['runs']
             if not owned: return self.send_error(404)
             folder=RUNS/parts[2]
-            if parts[3]=='download.zip' and folder.is_dir():
+            if len(parts)==5:
+                if parts[3]!='baseline': return self.send_error(404)
+                folder=folder/'baseline'
+            filename=parts[-1]
+            if filename=='download.zip' and len(parts)==4 and folder.is_dir():
                 memory=io.BytesIO()
                 with zipfile.ZipFile(memory,'w',zipfile.ZIP_DEFLATED) as z:
-                    for f in folder.iterdir():
-                        if f.is_file(): z.write(f,f.name)
+                    for f in folder.rglob('*'):
+                        if f.is_file(): z.write(f,str(f.relative_to(folder)))
                 raw=memory.getvalue();self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Disposition',f'attachment; filename="experiment-{parts[2]}.zip"');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
-            allowed={'reference.png','deformed.png','reference_mask.png','deformed_mask.png','images_and_error.png','field_comparison.png','report.html','config.json','summary.json','dic_displacements.csv','mechanical_fields.csv','errors.csv'}
-            if parts[3] not in allowed or not (folder/parts[3]).is_file(): return self.send_error(404)
-            f=folder/parts[3];raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
-        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js'): return self.send_error(404)
+            allowed={'reference.png','deformed.png','reference_mask.png','deformed_mask.png','images_and_error.png','field_comparison.png','report.html','config.json','summary.json','dic_displacements.csv','mechanical_fields.csv','errors.csv','noise_comparison.csv','noise_comparison.json','torsion_twist.csv','torsion_stress.csv','torsion_analysis.png'}
+            if filename not in allowed or not (folder/filename).is_file(): return self.send_error(404)
+            f=folder/filename;raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
+        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js'): return self.send_error(404)
         return super().do_GET()
     def do_POST(self):
         global PENDING_JOBS

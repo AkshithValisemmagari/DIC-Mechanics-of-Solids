@@ -4,10 +4,11 @@ const root=require('path').resolve(__dirname,'..');
 const dom=new JSDOM(fs.readFileSync(root+'/web/index.html','utf8'),{url:'http://127.0.0.1:8765',runScripts:'outside-only',pretendToBeVisual:true});
 const w=dom.window,errors=[];
 w.addEventListener('error',e=>errors.push(e.message));
-w.fetch=(url,opts)=>fetch(new URL(url,'http://127.0.0.1:8765'),opts);
+let cookie='';
+w.fetch=async(url,opts={})=>{const response=await fetch(new URL(url,'http://127.0.0.1:8765'),{...opts,headers:{...opts.headers,...(cookie?{Cookie:cookie}:{})}});const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];return response;};
 w.HTMLCanvasElement.prototype.getContext=function(){return new Proxy({},{get:(target,key)=>target[key]||(()=>{}),set:(target,key,value)=>(target[key]=value,true)});};
 w.HTMLCanvasElement.prototype.getBoundingClientRect=()=>({width:500,height:300,left:0,top:0});
-w.Image=class {set src(url){fetch(new URL(url,'http://127.0.0.1:8765')).then(r=>r.arrayBuffer()).then(b=>{const a=Buffer.from(b);this.width=a.readUInt32BE(16);this.height=a.readUInt32BE(20);if(this.onload)this.onload();}).catch(e=>this.onerror?.(e));}};
+w.Image=class {set src(url){w.fetch(url).then(r=>r.arrayBuffer()).then(b=>{const a=Buffer.from(b);this.width=a.readUInt32BE(16);this.height=a.readUInt32BE(20);if(this.onload)this.onload();}).catch(e=>this.onerror?.(e));}};
 
 const $=id=>w.document.getElementById(id);
 async function until(fn){const end=Date.now()+60000;while(!fn()){if(Date.now()>end)throw Error('Timeout: '+$('message').textContent);await new Promise(r=>setTimeout(r,100));}}
@@ -15,6 +16,8 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
 (async()=>{
  for(let i=0;i<50;i++){try{await fetch('http://127.0.0.1:8765/api/settings');break;}catch(e){await new Promise(r=>setTimeout(r,100));}}
  w.eval(fs.readFileSync(root+'/web/model3d.js','utf8'));
+ w.eval(fs.readFileSync(root+'/web/analysis.js','utf8'));
+ w.eval(fs.readFileSync(root+'/web/experiments.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/app.js','utf8'));
  await until(()=>!$('controls').disabled);
  change('material','steel','change');assert.equal($('E_gpa').value,'200');
@@ -32,7 +35,34 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  assert($('runCaption').textContent.includes('Plate with a hole'));
  change('force_n','999999999');$('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('message').className==='error');assert($('message').textContent.includes('force_n'));
+ w.document.querySelector('[data-object="pure_bending"]').click();
+ assert(!$('momentControl').hidden);assert($('forceControl').hidden);assert(!$('cameraControls').hidden);
+ change('noise_std','.025');$('compare_noise').checked=true;
+ $('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await until(()=>$('state').textContent==='Experiment complete');
+ assert($('runCaption').textContent.includes('Pure bending'));assert(!$('noiseResults').hidden);
+ w.document.querySelector('[data-tab="fields"]').click();change('field','stress_xx','change');
+ assert($('profileStats').textContent.includes('Common valid'));assert(!$('baselineKey').hidden);assert(!$('profileDownload').disabled);
+ change('profileAxis','vertical','change');assert($('profilePosition').textContent.includes('x ='));
+ w.document.querySelector('[data-tab="noise"]').click();assert($('noiseStats').textContent.includes('Common points'));
+ const pair=await(await w.fetch('/api/result')).json();
+ if(process.env.LAB_PREVIEW_DIR)fs.writeFileSync(require('path').join(process.env.LAB_PREVIEW_DIR,'bending-pair-preview.json'),JSON.stringify(pair));
+ w.document.querySelector('[data-object="torsion"]').click();
+ assert($('cameraControls').hidden);assert($('compare_noise').disabled);assert(!$('radiusControl').hidden);assert(!$('torqueControl').hidden);
+ change('torque_nm','-20');$('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await until(()=>$('state').textContent==='Experiment complete');
+ assert($('runCaption').textContent.includes('Analytical torsion'));assert($('metricError').textContent.startsWith('-'));
+ assert(w.document.querySelector('[data-tab="fields"]').hidden);assert(!$('model').hidden);assert($('dicMethods').hidden);
+ w.document.querySelector('[data-tab="torsion"]').click();assert($('torsionEquations').textContent.includes('G ='));
+ assert(!$('noiseResults').offsetParent);
+ const shaft=await(await w.fetch('/api/result')).json();assert(!shaft.dic);assert(!shaft.baseline);
+ if(process.env.LAB_PREVIEW_DIR)fs.writeFileSync(require('path').join(process.env.LAB_PREVIEW_DIR,'torsion-preview.json'),JSON.stringify(shaft));
+ w.document.querySelector('[data-object="axial_bar"]').click();$('compare_noise').checked=false;
+ $('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await until(()=>$('state').textContent==='Experiment complete');
+ assert(!w.document.querySelector('[data-tab="fields"]').hidden);assert(w.document.querySelector('[data-tab="torsion"]').hidden);assert(!$('dicMethods').hidden);
+ assert($('noiseResults').hidden);assert($('baselineKey').hidden);
  assert.deepEqual(errors,[]);
- console.log('PASS: presets, custom material, run submission, tabs, field switching, stale results, object selection, zero load, export link and invalid-input error. Canvas drawing is stubbed; this is not a visual browser test.');
+ console.log('PASS: presets, custom material, run submission, tabs, field switching, stale results, object selection, zero load, export link, invalid-input error, pure bending, paired noise, line profiles, analytical torsion and switching back to DIC. Canvas drawing is stubbed; this is not a visual browser test.');
  dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1;});
