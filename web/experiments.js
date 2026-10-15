@@ -42,7 +42,11 @@ window.LabExperiments=(()=>{
     const {c,w,h}=cv('profileCanvas');A.chart(c,w,h,profileData.x,series,{xlabel:`${axis==='horizontal'?'x':'y'} (mm)`,ylabel:`${profileData.label} (${profileData.unit})`});
     const s=profileData.stats,b=profileData.baseStats;$('profileStats').textContent=`${d.baseline?'Common valid':'Valid'} points: ${s.n}. ${d.baseline?'Selected noise':'DIC'} — RMSE ${fmt(s.rmse,5)}, max |error| ${fmt(s.max,5)} ${profileData.unit}.`+(d.baseline?` Baseline — RMSE ${fmt(b.rmse,5)}, max |error| ${fmt(b.max,5)} ${profileData.unit}.`:'');
     $('profileDownload').disabled=!profileData.rows.length;
-    const map=cv('profileMap'),bounds=d.bounds,p=api.pointTransform(map.w,map.h,bounds,25),a=p(bounds[0],bounds[2]),z=p(bounds[1],bounds[3]);
+    const map=cv('profileMap');
+    // Hidden tabs have zero layout size. Wait until the map has room for its
+    // padding; otherwise its scale (and the hole's canvas arc radius) is negative.
+    if(map.w<=50||map.h<=50)return;
+    const bounds=d.bounds,p=api.pointTransform(map.w,map.h,bounds,25),a=p(bounds[0],bounds[2]),z=p(bounds[1],bounds[3]);
     map.c.fillStyle='#e2eee6';map.c.fillRect(a[0],z[1],z[0]-a[0],a[1]-z[1]);map.c.strokeStyle='#86a997';map.c.strokeRect(a[0],z[1],z[0]-a[0],a[1]-z[1]);
     map.c.strokeStyle='#d57245';map.c.lineWidth=2;const q=profileData.position_mm/1000;const endpoints=axis==='horizontal'?[p(bounds[0],q),p(bounds[1],q)]:[p(q,bounds[2]),p(q,bounds[3])];map.c.beginPath();map.c.moveTo(...endpoints[0]);map.c.lineTo(...endpoints[1]);map.c.stroke();
     if(d.config.hole_radius_m){const centre=p(0,0),r=d.config.hole_radius_m*(z[0]-a[0])/(bounds[1]-bounds[0]);map.c.fillStyle='#f6f9f5';map.c.beginPath();map.c.arc(...centre,r,0,2*Math.PI);map.c.fill();map.c.strokeStyle='#86a997';map.c.stroke();}
