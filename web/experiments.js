@@ -3,15 +3,20 @@ window.LabExperiments=(()=>{
   let api,lastRun=null,profileData=null;const A=window.LabAnalysis;
   const $=id=>api.$(id),result=()=>api.getResult(),cv=id=>api.canvas(id),fmt=(v,n=3)=>api.fmt(v,n);
   function controls(name){
-    const shaft=name==='torsion',bending=name==='pure_bending';
-    for(const [id,hidden]of[['heightLabel',shaft],['thicknessLabel',shaft],['forceControl',shaft||bending],['radiusControl',!shaft],['torqueControl',!shaft],['momentControl',!bending],['cameraControls',shaft],['torsionOnlyNote',!shaft],['holeControl',name!=='plate_with_hole']])$(id).hidden=hidden;
-    for(const id of ['height_mm','thickness_mm','force_n','radius_mm','torque_nm','moment_nm','hole_radius_mm'])$(id).disabled=$(id).closest('label').hidden;
-    $('cameraControls').querySelectorAll('input,select').forEach(el=>el.disabled=shaft);
-    $('loadHint').textContent=shaft?'Torque about the shaft axis · θ(0) = 0':bending?'Equal and opposite end moments · change the sign to reverse bending':name==='cantilever'?'Upward end force · beam bending + shear':name==='plate_with_hole'?'Equivalent nominal load · remote stress = F / (width × thickness)':'Axial tension · stress = force / gross area';
+    const square=name==='square_torsion',shaft=name==='torsion'||square,bending=name==='pure_bending';
+    for(const [id,hidden]of[['heightLabel',shaft],['thicknessLabel',shaft],['forceControl',shaft||bending],['radiusControl',!shaft||square],['sideControl',!square],['torqueControl',!shaft],['momentControl',!bending],['cameraControls',shaft&&!square],['torsionOnlyNote',!shaft||square],['holeControl',name!=='plate_with_hole']])$(id).hidden=hidden;
+    for(const id of ['height_mm','thickness_mm','force_n','radius_mm','side_mm','torque_nm','moment_nm','hole_radius_mm'])$(id).disabled=$(id).closest('label').hidden;
+    $('cameraControls').querySelectorAll('input,select').forEach(el=>el.disabled=shaft&&!square);
+    $('compare_noise').disabled=shaft;
+    $('compare_noise').closest('label').hidden=square;
+    $('compare_noise').closest('label').nextElementSibling.hidden=square;
+    $('loadHint').textContent=square?'Equal and opposite end torques · θ(L/2) = 0':shaft?'Torque about the shaft axis · θ(0) = 0':bending?'Equal and opposite end moments · change the sign to reverse bending':name==='cantilever'?'Upward end force · beam bending + shear':name==='plate_with_hole'?'Equivalent nominal load · remote stress = F / (width × thickness)':'Axial tension · stress = force / gross area';
   }
   function configure(data){
-    const shaft=!!data.analysis_only;
+    const shaft=!!data.analysis_only||!!data.stereo;
     document.querySelectorAll('[data-tab]').forEach(b=>{b.hidden=shaft?['images','fields','noise'].includes(b.dataset.tab):b.dataset.tab==='torsion';});
+    document.querySelector('[data-tab="stereo"]').hidden=!data.stereo;
+    document.querySelector('[data-tab="torsion"]').hidden=!data.analysis_only;
     if(document.querySelector('[data-tab].active')?.hidden)document.querySelector('[data-tab="model"]').click();
     $('dicMethods').hidden=shaft;
     $('methodIntro').textContent=shaft?'This experiment evaluates analytical shaft mechanics; no DIC is performed.':'The images are the only motion information passed to DIC.';
@@ -26,7 +31,7 @@ window.LabExperiments=(()=>{
     if(!shaft&&data.baseline){$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}
   }
   function profile(){
-    const d=result();if(!d||d.analysis_only)return;
+    const d=result();if(!d||d.analysis_only||d.stereo)return;
     const axis=$('profileAxis').value,available=A.lines(d,axis),slider=$('profileLine');slider.max=available.length-1;
     if(slider.dataset.initial==='1'){slider.value=Math.floor((available.length-1)/2);slider.dataset.initial='0';}
     profileData=A.profile(d,$('field').value,axis,+slider.value);

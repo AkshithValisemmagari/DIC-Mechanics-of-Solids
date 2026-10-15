@@ -9,7 +9,7 @@ window.Specimen3D=(()=>{
   const stressIndex={stress_xx:5,stress_xx_signed:5,stress_yy:6,tau:7,von_mises:8};
   function stressColor(value,max){const t=max>0?clamp(value/max,0,1):0,stops=[[48,117,232],[33,196,204],[244,211,70],[247,135,49],[229,55,54]],p=t*4,i=Math.min(3,Math.floor(p)),f=p-i;return stops[i].map((v,k)=>Math.round(v+(stops[i+1][k]-v)*f));}
   function signedColor(value,max){const t=max?Math.min(1,Math.abs(value)/max):0,a=[243,241,232],b=value<0?[53,122,190]:[229,55,54];return a.map((v,i)=>Math.round(v+(b[i]-v)*t));}
-  function stressRange(data,mode,phase){const k={stress_xx:0,stress_xx_signed:0,stress_yy:1,tau:2,von_mises:3}[mode];if(data?.analysis_only){if(mode==='plain')return null;const max=(mode==='von_mises'?data.torsion.max_von_mises_pa:data.torsion.max_shear_pa)/1e6;return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}if(k==null||!data?.stress_surface)return null;const max=data.stress_surface.reduce((a,p)=>Math.max(a,Math.abs(p[k])),0);return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}
+  function stressRange(data,mode,phase){const k={stress_xx:0,stress_xx_signed:0,stress_yy:1,tau:2,von_mises:3}[mode];if(data?.analysis_only||data?.stereo){if(mode==='plain')return null;const max=(mode==='von_mises'?data.torsion.max_von_mises_pa:data.torsion.max_shear_pa)/1e6;return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}if(k==null||!data?.stress_surface)return null;const max=data.stress_surface.reduce((a,p)=>Math.max(a,Math.abs(p[k])),0);return{max,peak:max*phase,...(mode==='stress_xx_signed'?{min:-max}:{})};}
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function reset(){Object.assign(view,{yaw:-.52,pitch:.40,zoom:1});redraw?.();}
   function front(){Object.assign(view,{yaw:0,pitch:0,zoom:1});redraw?.();}
@@ -46,6 +46,13 @@ window.Specimen3D=(()=>{
     return{vertices,faces,edgeLoops,thickness:2*R};
   }
   function build(data){
+    if(data.stereo){
+      const vertices=data.square_solid.vertices.map(p=>[p[0],p[1],p[2],p[3],p[4],0,0,p[6],p[7],p[5]]);
+      const faces=data.square_solid.faces.map(ids=>({ids,kind:'face'}));
+      const edgeLoops=[];
+      for(const x of [0,data.config.length_m])edgeLoops.push([[-1,-1],[1,-1],[1,1],[-1,1]].map(([y,z])=>vertices.findIndex(p=>Math.abs(p[0]-x)<1e-10&&Math.abs(p[1]-y*data.config.side_m/2)<1e-10&&Math.abs(p[2]-z*data.config.side_m/2)<1e-10)));
+      return{vertices,faces,edgeLoops,thickness:data.config.side_m};
+    }
     if(data.analysis_only)return buildShaft(data);
     const vertices=[],faces=[],edgeLoops=[];
     const thickness=data.config.user_inputs.thickness_mm/1000;
@@ -101,12 +108,12 @@ window.Specimen3D=(()=>{
     // Fit the full-load envelope at this camera angle, so animation does not
     // breathe in size and slender beams still use the available viewport.
     const fit=[];
-    for(const p of vertices)for(const amount of [0,mag]){const q=cameraPoint([p[0]+amount*p[3],p[1]+amount*p[4],p[2]]),k=distance/(distance-q[2]);fit.push([q[0]*k,q[1]*k]);}
+    for(const p of vertices)for(const amount of [0,mag]){const q=cameraPoint(data.stereo?deform(p,amount):[p[0]+amount*p[3],p[1]+amount*p[4],p[2]]),k=distance/(distance-q[2]);fit.push([q[0]*k,q[1]*k]);}
     let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
     for(const p of fit){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
     const scale=.92*Math.min(Math.max(20,w-160)/Math.max(x1-x0,.05),Math.max(20,h-145)/Math.max(y1-y0,.05))*view.zoom;
     function project(p){const k=distance/(distance-p[2]);return[w/2+scale*(p[0]*k-(x0+x1)/2),h/2-scale*(p[1]*k-(y0+y1)/2),p[2]];}
-    function deform(p,amount){if(!data.analysis_only)return[p[0]+amount*p[3],p[1]+amount*p[4],p[2]];const angle=data.torsion.twist_rate_rad_per_m*p[0]*amount;return[p[0],p[1]*Math.cos(angle)-p[2]*Math.sin(angle),p[1]*Math.sin(angle)+p[2]*Math.cos(angle)];}
+    function deform(p,amount){if(data.stereo){const a=data.torsion.twist_rate_rad_per_m*(p[0]-(data.torsion.rotation_reference_m??0))*amount;return[p[0]+amount*p[3],p[1]*Math.cos(a)-p[2]*Math.sin(a),p[1]*Math.sin(a)+p[2]*Math.cos(a)];}if(!data.analysis_only)return[p[0]+amount*p[3],p[1]+amount*p[4],p[2]];const angle=data.torsion.twist_rate_rad_per_m*p[0]*amount;return[p[0],p[1]*Math.cos(angle)-p[2]*Math.sin(angle),p[1]*Math.sin(angle)+p[2]*Math.cos(angle)];}
     const camera=vertices.map(p=>cameraPoint(deform(p,f))),screen=camera.map(project);
     const original=vertices.map(p=>project(cameraPoint(p.slice(0,3))));
     function line(points,close=true){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(close)ctx.closePath();}
@@ -125,7 +132,15 @@ window.Specimen3D=(()=>{
       line(face.ids.map(i=>screen[i]));ctx.fill();ctx.strokeStyle=range?'rgba(17,47,48,.10)':face.kind==='side'?'rgba(99,193,161,.35)':'rgba(17,71,64,.28)';ctx.lineWidth=.5;ctx.stroke();if(face.marker){ctx.strokeStyle='rgba(246,249,225,.9)';ctx.lineWidth=2;line([screen[face.ids[0]],screen[face.ids[3]]],false);ctx.stroke();}
     }
     function curvedArrow(worldPoints,label){const pp=worldPoints.map(q=>project(cameraPoint(q)));ctx.strokeStyle='#e4eeb7';ctx.fillStyle='#e4eeb7';ctx.lineWidth=2;line(pp,false);ctx.stroke();const a=pp[pp.length-2],b=pp[pp.length-1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;line([b,[b[0]-dx/len*9-dy/len*4,b[1]-dy/len*9+dx/len*4],[b[0]-dx/len*9+dy/len*4,b[1]-dy/len*9-dx/len*4]]);ctx.fill();ctx.font='10px system-ui';ctx.fillText(label,clamp(b[0]+5,15,w-110),clamp(b[1]-8,80,h-45));}
-    if(data.analysis_only){const R=data.config.radius_m,L=data.config.length_m,sign=Math.sign(data.config.torque_nm)||1;curvedArrow(Array.from({length:40},(_,j)=>{const a=sign*(j/39*1.6*Math.PI);return[L,R*1.35*Math.cos(a),R*1.35*Math.sin(a)];}),`${Number((data.config.torque_nm*phase).toFixed(2))} N·m`);ctx.fillStyle='#d6e9df';ctx.font='11px system-ui';ctx.fillText('Reference end: θ = 0',22,h-58);}
+    if(data.analysis_only||data.stereo){
+      const R=data.stereo?data.config.side_m/Math.sqrt(2):data.config.radius_m,L=data.config.length_m,sign=Math.sign(data.config.torque_nm)||1;
+      // End resultants balance: -T at x=0 and +T at x=L, both signed about +x.
+      const ends=data.stereo?[[0,-sign],[L,sign]]:[[L,sign]];
+      for(const [x,direction] of ends){
+        curvedArrow(Array.from({length:40},(_,j)=>{const a=direction*(j/39*1.6*Math.PI);return[x,R*1.35*Math.cos(a),R*1.35*Math.sin(a)];}),`${Number((direction*Math.abs(data.config.torque_nm)*phase).toFixed(2))} N·m`);
+      }
+      ctx.fillStyle='#d6e9df';ctx.font='11px system-ui';ctx.fillText(data.stereo?'Equal and opposite end torques · middle reference θ(L/2) = 0':'Reference end: θ = 0',22,h-58);
+    }
     else if(data.config.benchmark==='pure_bending'){
       const M=data.config.moment_nm,sign=Math.sign(M)||1,R=(b[3]-b[2])*.36;
       for(const [x,direction]of[[b[0],-sign],[b[1],sign]]){const anchor=sample(data,x,0);curvedArrow(Array.from({length:35},(_,j)=>{const a=direction*(.15+j/34*1.5*Math.PI);return[x+f*anchor[2]+R*Math.cos(a),f*anchor[3]+R*Math.sin(a),thickness*.7];}),`${Number((direction*Math.abs(M)*phase).toFixed(2))} N·m`);}

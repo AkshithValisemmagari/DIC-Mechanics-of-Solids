@@ -11,7 +11,7 @@ MATERIALS = {
 }
 DEFAULTS = dict(benchmark='axial_bar', material='aluminium', E_gpa=70, nu=.33,
                 length_mm=120, height_mm=40, thickness_mm=4, hole_radius_mm=10,
-                force_n=40000, moment_nm=60, torque_nm=20, radius_mm=10, compare_noise=False, noise_std=0, blur_sigma=0, brightness_gain=1,
+                force_n=40000, moment_nm=60, torque_nm=20, radius_mm=10, side_mm=20, compare_noise=False, noise_std=0, blur_sigma=0, brightness_gain=1,
                 subset_size=25, step=16, search_radius=12, fit_radius_px=36,
                 speckle_radius_px=2.2, density=.4, seed=2039)
 
@@ -30,11 +30,14 @@ def number(data, key, low, high, integer=False):
 def build_config(data):
     if not isinstance(data, dict): raise ValueError('Experiment inputs must be an object.')
     name=data.get('benchmark','axial_bar'); mat=data.get('material','aluminium')
-    if name not in ('axial_bar','cantilever','plate_with_hole','pure_bending','torsion'): raise ValueError('Select a supported object.')
+    if name not in ('axial_bar','cantilever','plate_with_hole','pure_bending','torsion','square_torsion'): raise ValueError('Select a supported object.')
     if mat not in MATERIALS: raise ValueError('Select a supported material.')
     E=number(data,'E_gpa',.001,2000) if mat=='custom' else MATERIALS[mat]['E_gpa']
     nu=number(data,'nu',-.9,.49) if mat=='custom' else MATERIALS[mat]['nu']
     L=number(data,'length_mm',1,2000)/1000
+    if name=='square_torsion':
+        from square_torsion import build_square_config
+        return build_square_config(data,E,nu,L,number,DEFAULTS,MATERIALS[mat]['name'])
     if name=='torsion':
         from torsion import build_torsion_config
         return build_torsion_config(data,E,nu,L,number,DEFAULTS,MATERIALS[mat]['name'])

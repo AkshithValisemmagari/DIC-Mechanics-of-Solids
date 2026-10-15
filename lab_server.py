@@ -122,7 +122,12 @@ def execute(config,run_id,session_id):
         started=time.perf_counter()
         with LOCK: state['stage']='Solving analytical shaft torsion…' if config.get('analysis_only') else 'Generating images and solving subpixel DIC…'
         directory=RUNS/run_id
-        if config.get('analysis_only'):
+        if config.get('stereo'):
+            from stereo_experiment import run_stereo
+            def progress(message):
+                with LOCK: state['stage']=message
+            payload=run_stereo(config,run_id,directory,progress)
+        elif config.get('analysis_only'):
             from torsion import run_torsion
             payload=run_torsion(config,run_id,directory)
         else:
@@ -219,9 +224,11 @@ class Handler(SimpleHTTPRequestHandler):
                         if f.is_file(): z.write(f,str(f.relative_to(folder)))
                 raw=memory.getvalue();self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Disposition',f'attachment; filename="experiment-{parts[2]}.zip"');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
             allowed={'reference.png','deformed.png','reference_mask.png','deformed_mask.png','images_and_error.png','field_comparison.png','report.html','config.json','summary.json','dic_displacements.csv','mechanical_fields.csv','errors.csv','noise_comparison.csv','noise_comparison.json','torsion_twist.csv','torsion_stress.csv','torsion_analysis.png'}
+            allowed.update({f'{eye}_{phase}{suffix}.png' for eye in ('left','right') for phase in ('reference','deformed') for suffix in ('','_mask')})
+            allowed.update({'stereo_fields.csv','stereo_correspondences.csv','camera_calibration.json'})
             if filename not in allowed or not (folder/filename).is_file(): return self.send_error(404)
             f=folder/filename;raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
-        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js'): return self.send_error(404)
+        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js','/stereo.js'): return self.send_error(404)
         return super().do_GET()
     def do_POST(self):
         global PENDING_JOBS
