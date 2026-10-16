@@ -12,7 +12,7 @@ MATERIALS = {
 DEFAULTS = dict(benchmark='axial_bar', material='aluminium', E_gpa=70, nu=.33,
                 length_mm=120, height_mm=40, thickness_mm=4, hole_radius_mm=10,
                 force_n=40000, moment_nm=60, torque_nm=20, radius_mm=10, side_mm=20, compare_noise=False, noise_std=0, blur_sigma=0, brightness_gain=1,
-                subset_size=25, step=16, search_radius=12, fit_radius_px=36,
+                denoise_sigma=0, subset_size=25, step=16, search_radius=12, fit_radius_px=36,
                 speckle_radius_px=2.2, density=.4, seed=2039)
 
 
@@ -58,6 +58,8 @@ def build_config(data):
     search=number(data,'search_radius',4,36,True)
     noise=number(data,'noise_std',0,.15);blur=number(data,'blur_sigma',0,2.5)
     if compare and noise<=0: raise ValueError('Select Gaussian noise above zero for a paired comparison.')
+    denoise=number(data,'denoise_sigma',0,.5)
+    if denoise not in (0,.5):raise ValueError('DIC denoising must be Off (0) or Mild (0.5 px).')
     gain=number(data,'brightness_gain',.5,1.4)
     seed=number(data,'seed',0,2147483647,True)
     shape=[max(160,min(448,int(round(384*H/L)))),384]
@@ -65,7 +67,7 @@ def build_config(data):
        'domain_m':[0,L,-H/2,H/2], 'remote_stress_pa':P/(H*t),
        'image':{'shape':shape,'speckle_radius_px':number(data,'speckle_radius_px',1,5),'density':number(data,'density',.15,.65),'seed':seed},
        'camera':{'noise_std':noise,'blur_sigma':blur,'brightness_gain':gain,'brightness_offset':0,'seed':seed+1},
-       'dic':{'subset_size':subset,'step':step,'search_radius':search,'min_zncc':.75,'max_nfev':60,'gradient_bound':.12},
+       'dic':{'denoise_sigma':denoise,'subset_size':subset,'step':step,'search_radius':search,'min_zncc':.75,'max_nfev':60,'gradient_bound':.12},
        'strain':{'fit_radius_px':radius},
        'user_inputs':{**DEFAULTS,**data,'E_gpa':E,'nu':nu},
        'load_description':{'force_n':P,'gross_area_m2':H*t,'material_name':MATERIALS[mat]['name']}}

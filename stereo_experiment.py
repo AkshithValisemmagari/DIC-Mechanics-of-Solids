@@ -35,6 +35,13 @@ def run_stereo(config,run_id,directory,progress=None):
         Image.fromarray(np.rint(im*255).astype('uint8')).save(directory/(key+'.png'))
         Image.fromarray((masks[key]*255).astype('uint8')).save(directory/(key+'_mask.png'))
     measured=reconstruct(images,masks,rig,config['dic'],config['strain']['fit_radius_px'],progress)
+    matching_images=measured.pop('matching_images')
+    preprocessing=measured['preprocessing']
+    if preprocessing['sigma_px']:
+        for key,im in matching_images.items():
+            # PNG is a display copy; DIC above used the full floating-point array.
+            Image.fromarray(np.rint(np.clip(im,0,1)*65535).astype('uint16')).save(directory/(key+'_smoothed.png'))
+        np.savez_compressed(directory/'dic_input_images.npz',**matching_images)
     # Validation begins ONLY after reconstruction. No model or true coordinates
     # have been supplied to reconstruct(). Anchors are reference-image pixels.
     xy=rig.reference_xy(measured['centres_px']);reference=np.column_stack((xy,np.full(len(xy),model.a)))
@@ -53,7 +60,7 @@ def run_stereo(config,run_id,directory,progress=None):
         displacement_vector_rmse_mm=float(np.sqrt(np.mean(np.sum(err*err,axis=1)))) if len(err) else None,
         displacement_component_rmse_mm=np.sqrt(np.mean(err*err,axis=0)) if len(err) else [None]*3,
         max_true_displacement_mm=float(np.linalg.norm(true_displacement,axis=1).max()*1000),
-        status_counts=measured['status_counts'],thresholds=measured['thresholds'])
+        status_counts=measured['status_counts'],thresholds=measured['thresholds'],preprocessing=preprocessing)
     warnings=list(config['warnings'])
     if summary['valid_strain_subsets']==0:warnings.append('No well-conditioned surface-strain fits. Use smaller grid spacing/subsets or a larger fit radius; no strain values have been fabricated.')
     if valid.sum()<.8*len(valid):warnings.append('Fewer than 80% of candidate points passed stereo checks. Inspect rejected points and quality metrics; low error on survivors does not imply full coverage.')
@@ -80,6 +87,10 @@ def run_stereo(config,run_id,directory,progress=None):
             writer.writerow([measured['status'][i],*[v if np.isfinite(v) else '' for v in row]])
     rows=''.join(f'<tr><td>{html.escape(f["label"])}</td><td>{f["statistics"]["n_valid"]}</td><td>{f["statistics"]["rmse"]}</td><td>{f["unit"]}</td></tr>' for f in payload['fields'].values())
     pictures=''.join(f'<figure><figcaption>{k.replace("_"," ").title()}</figcaption><img src="{k}.png"></figure>' for k in images)
-    report=f'''<!doctype html><meta charset="utf-8"><title>Square torsion · stereo DIC</title><style>body{{font:16px system-ui;max-width:1100px;margin:40px auto;padding:20px;color:#173b38}}table{{border-collapse:collapse;width:100%}}td,th{{padding:12px;text-align:left;border-bottom:1px solid #ddd}}.images{{display:grid;grid-template-columns:1fr 1fr}}img{{width:100%}}pre{{white-space:pre-wrap}}</style><h1>Square torsion · stereo DIC</h1><p>Independent image matching → calibrated 3D reconstruction → surface strain → ground-truth validation.</p><p>Accepted {summary['valid_displacement_subsets']} / {len(valid)} candidate subsets. Vector displacement RMSE: {summary['displacement_vector_rmse_mm']} mm.</p><table><tr><th>Field</th><th>Valid points</th><th>RMSE</th><th>Unit</th></tr>{rows}</table><div class="images">{pictures}</div><h2>Model and measurement limits</h2><ul>{''.join('<li>'+html.escape(w)+'</li>' for w in warnings)}</ul><p>Affine subset correlation, independent stereo/temporal cycles, epipolar and reprojection checks, then local quadratic fitting of reference and deformed surfaces. Strains use Green–Lagrange surface metrics; a rigid rotation produces zero strain. Fit windows trade spatial resolution for noise suppression. Stress is analytical, not recovered from a single surface.</p><h2>Reproduce this run</h2><pre>{html.escape(json.dumps(json_safe(config),indent=2))}</pre><h2>Quality statistics</h2><pre>{html.escape(json.dumps(json_safe(summary),indent=2))}</pre>'''
+    preprocessing_note=('DIC denoising: Mild Gaussian smoothing (sigma 0.5 px), applied after capture to all four images. DIC uses floating-point filtered values; smoothed PNGs are 16-bit preview copies. Exact filtered arrays are in dic_input_images.npz. Original camera images are preserved.'
+                        if preprocessing['sigma_px'] else 'DIC denoising: Off. Matching uses the original captured images.')
+    if preprocessing['sigma_px']:
+        pictures+=''.join(f'<figure><figcaption>{k.replace("_"," ").title()} · smoothed DIC input</figcaption><img src="{k}_smoothed.png"></figure>' for k in images)
+    report=f'''<!doctype html><meta charset="utf-8"><title>Square torsion · stereo DIC</title><style>body{{font:16px system-ui;max-width:1100px;margin:40px auto;padding:20px;color:#173b38}}table{{border-collapse:collapse;width:100%}}td,th{{padding:12px;text-align:left;border-bottom:1px solid #ddd}}.images{{display:grid;grid-template-columns:1fr 1fr}}img{{width:100%}}pre{{white-space:pre-wrap}}</style><h1>Square torsion · stereo DIC</h1><p>Independent image matching → calibrated 3D reconstruction → surface strain → ground-truth validation.</p><p>Accepted {summary['valid_displacement_subsets']} / {len(valid)} candidate subsets. Vector displacement RMSE: {summary['displacement_vector_rmse_mm']} mm.</p><table><tr><th>Field</th><th>Valid points</th><th>RMSE</th><th>Unit</th></tr>{rows}</table><p>{preprocessing_note}</p><div class="images">{pictures}</div><h2>Model and measurement limits</h2><ul>{''.join('<li>'+html.escape(w)+'</li>' for w in warnings)}</ul><p>Affine subset correlation, independent stereo/temporal cycles, epipolar and reprojection checks, then local quadratic fitting of reference and deformed surfaces. Strains use Green–Lagrange surface metrics; a rigid rotation produces zero strain. Fit windows trade spatial resolution for noise suppression. Stress is analytical, not recovered from a single surface.</p><h2>Reproduce this run</h2><pre>{html.escape(json.dumps(json_safe(config),indent=2))}</pre><h2>Quality statistics</h2><pre>{html.escape(json.dumps(json_safe(summary),indent=2))}</pre>'''
     (directory/'report.html').write_text(report)
     return payload

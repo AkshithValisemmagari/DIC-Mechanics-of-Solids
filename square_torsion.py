@@ -106,12 +106,14 @@ def build_square_config(data,E_gpa,nu,L,number,defaults,material_name):
     if subset%2==0:raise ValueError('Subset size must be odd.')
     radius=number(data,'fit_radius_px',20,100)
     if radius<2.1*step:raise ValueError('Strain fit radius must be at least 2.1 times grid spacing.')
+    denoise=number(data,'denoise_sigma',0,.5)
+    if denoise not in (0,.5):raise ValueError('DIC denoising must be Off (0) or Mild (0.5 px).')
     seed=number(data,'seed',0,2147483647,True)
     return dict(benchmark='square_torsion',stereo=True,length_m=L,side_m=side,torque_nm=T,rotation_reference_m=L/2,
         material=dict(youngs_modulus_pa=E_gpa*1e9,poisson_ratio=nu),
         image=dict(speckle_radius_px=number(data,'speckle_radius_px',1,5),density=number(data,'density',.15,.65),seed=seed),
         camera=dict(noise_std=number(data,'noise_std',0,.15),blur_sigma=number(data,'blur_sigma',0,2.5),brightness_gain=number(data,'brightness_gain',.5,1.4),seed=seed+1),
-        dic=dict(subset_size=subset,step=step,search_radius=number(data,'search_radius',4,36,True)),
+        dic=dict(denoise_sigma=denoise,subset_size=subset,step=step,search_radius=number(data,'search_radius',4,36,True)),
         strain=dict(fit_radius_px=radius),user_inputs={**defaults,**data,'E_gpa':E_gpa,'nu':nu},
         load_description=dict(material_name=material_name,torque_nm=T),
         warnings=['Square-section Saint-Venant torsion with free axial warping. The middle section has zero rotation; both ends rotate oppositely. Local rigid-clamp/end effects are excluded.',

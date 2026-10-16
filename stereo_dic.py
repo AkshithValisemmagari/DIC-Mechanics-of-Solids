@@ -12,6 +12,9 @@ from scipy.signal import correlate
 from scipy.spatial import cKDTree
 
 
+from image_preprocessing import prepare_images
+
+
 class ImageMatcher:
     def __init__(self,image,mask,subset):
         self.image=np.asarray(image,float);self.mask=binary_erosion(mask,iterations=3)
@@ -95,9 +98,13 @@ def surface_strain(reference,deformed,centres,valid,radius):
 
 def reconstruct(images,masks,rig,settings,strain_radius,progress=None):
     keys=['left_reference','right_reference','left_deformed','right_deformed']
+    raw_images,raw_masks=images,masks
+    images,masks,preprocessing=prepare_images(images,masks,settings.get('denoise_sigma',0))
     matchers=[ImageMatcher(images[k],masks[k],settings['subset_size']) for k in keys]
     a,b,c,d=matchers;H,W=images[keys[0]].shape;h=settings['subset_size']//2;step=settings['step'];radius=settings['search_radius']
-    rows,cols=np.nonzero(a.mask)
+    # Keep the original candidate grid for fair Off/Mild coverage comparisons.
+    candidate=a if not preprocessing['sigma_px'] else ImageMatcher(raw_images[keys[0]],raw_masks[keys[0]],settings['subset_size'])
+    rows,cols=np.nonzero(candidate.mask)
     def axis(lo,hi):
         lo+=h+1;hi-=h+1
         count=max(0,int((hi-lo)//step)+1)
@@ -107,7 +114,7 @@ def reconstruct(images,masks,rig,settings,strain_radius,progress=None):
     grid=np.array([(x,y) for y in axis(rows.min(),rows.max()) for x in axis(cols.min(),cols.max())],float)
     # Candidate centres require reference subset support; invalid background isn't
     # counted as a failed stereo attempt. All subsequent failure reasons are kept.
-    centres=np.array([p for p in grid if a.supported(p[1]+a.dy,p[0]+a.dx)])
+    centres=np.array([p for p in grid if candidate.supported(p[1]+candidate.dy,p[0]+candidate.dx)])
     if not len(centres):raise ValueError('No complete reference subsets fit the face. Reduce subset size or increase square side.')
     n=len(centres);reference=np.full((n,3),np.nan);deformed=reference.copy();coordinates=np.full((n,4,2),np.nan)
     valid=np.zeros(n,bool);quality=np.full((n,4),np.nan);statuses=[]
@@ -156,4 +163,5 @@ def reconstruct(images,masks,rig,settings,strain_radius,progress=None):
     displacement=deformed-reference;displacement[~valid]=np.nan;strains[~valid]=np.nan
     return dict(centres_px=centres,reference_m=reference,deformed_m=deformed,displacement_m=displacement,
                 strain=strains,valid=valid,coordinates_px=coordinates,quality=quality,status=statuses,
-                status_counts=dict(Counter(statuses)),thresholds=thresholds)
+                status_counts=dict(Counter(statuses)),thresholds=thresholds,
+                preprocessing=preprocessing,matching_images=images)

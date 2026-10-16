@@ -1,6 +1,8 @@
 """End-to-end experiment orchestration and reproducible outputs."""
 import json
 from pathlib import Path
+from PIL import Image
+from image_preprocessing import prepare_images
 import numpy as np
 from scipy.ndimage import binary_erosion
 from mechanics import Benchmark
@@ -22,7 +24,10 @@ def run_experiment(config, output_dir=None, make_plots=True):
     if erosion:
         mr = binary_erosion(mr, iterations=erosion)
         md = binary_erosion(md, iterations=erosion)
-    dic = run_dic(ref, deformed, mr, md, **config['dic'])
+    dic_settings=dict(config['dic']);sigma=dic_settings.pop('denoise_sigma',0)
+    inputs,support,preprocessing=prepare_images({'reference':ref,'deformed':deformed},
+                                              {'reference':mr,'deformed':md},sigma)
+    dic = run_dic(inputs['reference'],inputs['deformed'],support['reference'],support['deformed'],**dic_settings)
     xmin, xmax, ymin, ymax = model.bounds
     sx, sy = truth['sx'], truth['sy']
     x, y = xmin+dic[:, 0]*sx, ymax-dic[:, 1]*sy
@@ -39,6 +44,7 @@ def run_experiment(config, output_dir=None, make_plots=True):
     stress = plane_stress(strain, model.E, model.nu)
     derived = invariants(stress)
     summary = summarize(dic, true_disp, strain, true_strain, stress, true_stress)
+    summary['preprocessing'] = preprocessing
     summary['benchmark'] = model.name
     summary['pixel_size_m'] = [sx, sy]
     summary['max_ground_truth_displacement_px'] = float(np.nanmax(np.linalg.norm(true_disp, axis=1)))
@@ -53,7 +59,7 @@ def run_experiment(config, output_dir=None, make_plots=True):
             'analytical_sampled_sigma_xx_ratio': float(np.max(true_stress[valid, 0]/S)) if valid.any() and S != 0 else None,
             'dic_sampled_sigma_xx_ratio': float(np.max(stress[valid, 0]/S)) if valid.any() and S != 0 else None,
             'note': 'Subset centres do not reach the hole edge. Sampled ratios are not edge Kt estimates.'}
-    bundle = dict(config=config, reference=ref, deformed=deformed, mask_reference=mr,
+    bundle = dict(config=config, matching_images=inputs, reference=ref, deformed=deformed, mask_reference=mr,
                   mask_deformed=md, dic=dic, x=x, y=y, true_disp=true_disp,
                   strain=strain, stress=stress, true_strain=true_strain,
                   true_stress=true_stress, invariants=derived, summary=summary)
@@ -62,6 +68,10 @@ def run_experiment(config, output_dir=None, make_plots=True):
         (out/'config.json').write_text(json.dumps(config, indent=2)+'\n')
         (out/'summary.json').write_text(json.dumps(summary, indent=2, allow_nan=False)+'\n')
         save_image(out/'reference.png', ref); save_image(out/'deformed.png', deformed)
+        if sigma:
+            for key,im in inputs.items():
+                Image.fromarray(np.rint(np.clip(im,0,1)*65535).astype('uint16')).save(out/(key+'_smoothed.png'))
+            np.savez_compressed(out/'dic_input_images.npz',**inputs)
         save_image(out/'reference_mask.png', mr); save_image(out/'deformed_mask.png', md)
         np.savez_compressed(out/'ground_truth.npz', **truth, reference_support_mask=mr)
         np.savetxt(out/'dic_displacements.csv', dic, delimiter=',', header=DIC_COLUMNS, comments='')

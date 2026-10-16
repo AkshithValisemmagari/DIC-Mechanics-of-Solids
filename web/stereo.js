@@ -2,7 +2,7 @@
 window.StereoLab=(()=>{
   let api,loaded={},lastRun;const keys=['left_reference','right_reference','left_deformed','right_deformed'];
   const $=id=>api.$(id),cv=id=>api.canvas(id),fmt=(v,n=4)=>api.fmt(v,n),finite=Number.isFinite;
-  function init(dependencies){api=dependencies;$('stereoField').addEventListener('change',render);$('stereoRow').addEventListener('change',render);}
+  function init(dependencies){api=dependencies;$('stereoField').addEventListener('change',render);$('stereoRow').addEventListener('change',render);$('stereoImageMode').addEventListener('change',render);$('stereoPoints').addEventListener('change',render);}
   function display(d){
     const c=d.config,s=d.summary;
     $('play').textContent='▶ Play';$('empty').hidden=true;$('state').className='state';$('state').textContent='Experiment complete';
@@ -18,26 +18,34 @@ window.StereoLab=(()=>{
     $('stressView').querySelector('[value="tau"]').textContent='Shear stress magnitude √(τxy² + τxz²)';
     $('methodIntro').textContent='Stereo DIC receives only four images, support masks, camera calibration and correlation settings.';
     $('methodDetails').textContent='Square Saint-Venant torsion → inverse pinhole rendering with cubic interpolation → independent affine ZNCC matching across cameras and time → cycle, epipolar, reprojection and neighbour checks → 3D triangulation → local quadratic surface fitting → Green–Lagrange surface strain. Ground truth is used only after reconstruction for validation. Interior stress is analytical; no measured bulk stress is inferred from one face.';
+    $('methodDetails').textContent+=(s.preprocessing?.sigma_px?' Mild Gaussian denoising (σ = 0.5 px) is applied identically after capture and before all matching; original images are preserved.':' DIC denoising is off.');
     $('warnings').replaceChildren(...c.warnings.map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));
     $('raw').textContent=JSON.stringify({config:c,summary:s,calibration:d.calibration},null,2);
     $('download').href=d.asset_prefix+'download.zip';$('report').href=d.asset_prefix+'report.html';
     $('download').classList.remove('disabled');$('report').classList.remove('disabled');
+    const smoothed=!!s.preprocessing?.sigma_px;
+    $('stereoImageMode').querySelector('[value="smoothed"]').disabled=!smoothed;
     if(lastRun!==d.run_id){lastRun=d.run_id;loaded={};
+      $('stereoImageMode').value=smoothed?'smoothed':'original';
       const rows=[...new Set(d.y_m)].sort((a,b)=>a-b);
       $('stereoRow').replaceChildren(...rows.map(y=>{const o=document.createElement('option');o.value=y;o.textContent=`y = ${fmt(y*1000,2)} mm`;return o;}));
       $('stereoRow').selectedIndex=Math.floor(rows.length/2);
-      for(const key of keys){const im=new Image();im.onload=()=>{if(lastRun===d.run_id){loaded[key]=im;render();}};im.onerror=()=>{if(lastRun===d.run_id)$('stereoQuality').textContent='A camera image could not load. Reload the page; numerical results remain available.';};im.src=d.asset_prefix+key+'.png';}
+      for(const key of [...keys,...(smoothed?keys.map(k=>k+'_smoothed'):[])]){const im=new Image();im.onload=()=>{if(lastRun===d.run_id){loaded[key]=im;render();}};im.onerror=()=>{if(lastRun===d.run_id)$('stereoQuality').textContent='A camera image could not load. Reload the page; numerical results remain available.';};im.src=d.asset_prefix+key+'.png';}
     }
   }
   function render(){
     const d=api?.getResult();if(!d?.stereo)return;
     const r=d.stereo_result,f=d.fields[$('stereoField').value],n=r.valid.length;
+    const sigma=d.summary.preprocessing?.sigma_px||0,smoothed=sigma>0&&$('stereoImageMode').value==='smoothed';
+    $('stereoPreprocessing').textContent=sigma>0
+      ?`DIC used Mild Gaussian denoising (σ = ${sigma} px) on all four images. Showing ${smoothed?'smoothed DIC inputs':'original camera images'}. Switching this preview does not change the measurements. Filtering excludes boundary-affected support; exact floating-point inputs are in the run download.`
+      :'DIC denoising: Off. These original camera images were used for matching. Select Mild in DIC & imaging settings and run again to see smoothed inputs.';
     for(const [k,key] of keys.entries()){
-      const {c,w,h}=cv('stereo_'+key),im=loaded[key];c.fillStyle='#eff2ee';c.fillRect(0,0,w,h);if(!im)continue;
+      const {c,w,h}=cv('stereo_'+key),im=loaded[key+(smoothed?'_smoothed':'')];c.fillStyle='#eff2ee';c.fillRect(0,0,w,h);if(!im||w<=16||h<=16)continue;
       const scale=Math.min((w-16)/im.width,(h-16)/im.height),x=(w-im.width*scale)/2,y=(h-im.height*scale)/2;
       c.drawImage(im,x,y,im.width*scale,im.height*scale);
       // Payload coordinate order is L0,R0,L1,R1.
-      r.coordinates_px.forEach((points,i)=>{if(k&&!r.valid[i])return;const p=points[k];if(!p.every(finite))return;c.fillStyle=r.valid[i]?'#20bd8e':'#888';c.beginPath();c.arc(x+p[0]*scale,y+p[1]*scale,2,0,Math.PI*2);c.fill();});
+      if($('stereoPoints').checked)r.coordinates_px.forEach((points,i)=>{if(k&&!r.valid[i])return;const p=points[k];if(!p.every(finite))return;c.fillStyle=r.valid[i]?'#20bd8e':'#888';c.beginPath();c.arc(x+p[0]*scale,y+p[1]*scale,2,0,Math.PI*2);c.fill();});
     }
     const valid=f.measured.map((v,i)=>r.valid[i]&&finite(v)&&finite(f.truth[i]));
     const vals=f.truth.flatMap((v,i)=>valid[i]?[v,f.measured[i]]:[]);

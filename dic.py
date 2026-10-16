@@ -8,6 +8,7 @@ from scipy.signal import correlate
 from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
 from scipy.ndimage import map_coordinates, binary_erosion
+from image_preprocessing import prepare_images
 
 
 def normalized(a):
@@ -29,7 +30,7 @@ def integer_match(template, search):
 
 def run_dic(reference, deformed, mask_reference=None, mask_deformed=None,
             subset_size=25, step=16, search_radius=7, min_zncc=0.75,
-            max_nfev=45, gradient_bound=0.12):
+            max_nfev=45, gradient_bound=0.12, denoise_sigma=0):
     reference, deformed = np.asarray(reference, float), np.asarray(deformed, float)
     if reference.shape != deformed.shape or reference.ndim != 2 or not np.all(np.isfinite(reference)) or not np.all(np.isfinite(deformed)):
         raise ValueError('DIC needs two finite grayscale images of equal shape.')
@@ -43,6 +44,10 @@ def run_dic(reference, deformed, mask_reference=None, mask_deformed=None,
     md = np.ones(deformed.shape, bool) if mask_deformed is None else np.asarray(mask_deformed, bool)
     if mr.shape != reference.shape or md.shape != reference.shape:
         raise ValueError('Masks must match image shape.')
+    inputs,support,_=prepare_images({'reference':reference,'deformed':deformed},
+                                    {'reference':mr,'deformed':md},denoise_sigma)
+    reference,deformed=inputs['reference'],inputs['deformed']
+    mr,md=support['reference'],support['deformed']
     # Extra support avoids sampling interpolation footprints across a hole.
     mr = binary_erosion(mr, iterations=3)
     md = binary_erosion(md, iterations=3)

@@ -7,6 +7,8 @@ window.LabExperiments=(()=>{
     for(const [id,hidden]of[['heightLabel',shaft],['thicknessLabel',shaft],['forceControl',shaft||bending],['radiusControl',!shaft||square],['sideControl',!square],['torqueControl',!shaft],['momentControl',!bending],['cameraControls',shaft&&!square],['torsionOnlyNote',!shaft||square],['holeControl',name!=='plate_with_hole']])$(id).hidden=hidden;
     for(const id of ['height_mm','thickness_mm','force_n','radius_mm','side_mm','torque_nm','moment_nm','hole_radius_mm'])$(id).disabled=$(id).closest('label').hidden;
     $('cameraControls').querySelectorAll('input,select').forEach(el=>el.disabled=shaft&&!square);
+    $('denoiseControl').hidden=name==='torsion';
+    $('denoise_sigma').disabled=name==='torsion';
     $('compare_noise').disabled=shaft;
     $('compare_noise').closest('label').hidden=square;
     $('compare_noise').closest('label').nextElementSibling.hidden=square;
@@ -28,7 +30,7 @@ window.LabExperiments=(()=>{
     const hints=shaft?['Analytical · degrees','Analytical · MPa','Analytical · MPa','Analytical model and report']:['Measured vs analytical · pixels','Accepted / candidate centres','On candidate centres · pixels','Images → fields → validation'];
     document.querySelectorAll('.metrics>div').forEach((el,i)=>{el.querySelector('label').textContent=labels[i];el.querySelector('small').textContent=hints[i];});
     if(lastRun!==data.run_id){lastRun=data.run_id;$('profileLine').dataset.initial='1';}
-    if(!shaft&&data.baseline){$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}
+    if(!shaft&&data.baseline){for(const o of $('noiseImage').options){if(o.value.includes('_smoothed'))o.disabled=!data.summary.preprocessing?.sigma_px;}if($('noiseImage').selectedOptions[0]?.disabled)$('noiseImage').value='deformed.png';$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}
   }
   function profile(){
     const d=result();if(!d||d.analysis_only||d.stereo)return;
