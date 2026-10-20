@@ -58,8 +58,8 @@ def build_config(data):
     search=number(data,'search_radius',4,36,True)
     noise=number(data,'noise_std',0,.15);blur=number(data,'blur_sigma',0,2.5)
     if compare and noise<=0: raise ValueError('Select Gaussian noise above zero for a paired comparison.')
-    denoise=number(data,'denoise_sigma',0,.5)
-    if denoise not in (0,.5):raise ValueError('DIC denoising must be Off (0) or Mild (0.5 px).')
+    from image_preprocessing import validate_denoising
+    denoise=validate_denoising(data.get('denoise_sigma',0))
     gain=number(data,'brightness_gain',.5,1.4)
     seed=number(data,'seed',0,2147483647,True)
     shape=[max(160,min(448,int(round(384*H/L)))),384]

@@ -57,6 +57,6 @@ class AllDICDenoisingTests(unittest.TestCase):
 
     def test_flat_setting_validation(self):
         for name,_ in CASES:
-            for value in [True,.1,1,-1]:
+            for value in [True,.1,1.1,-1]:
                 with self.subTest(name=name,value=value),self.assertRaises(ValueError):
                     build_config(dict(benchmark=name,denoise_sigma=value))

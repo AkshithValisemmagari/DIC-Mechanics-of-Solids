@@ -18,12 +18,12 @@ window.StereoLab=(()=>{
     $('stressView').querySelector('[value="tau"]').textContent='Shear stress magnitude √(τxy² + τxz²)';
     $('methodIntro').textContent='Stereo DIC receives only four images, support masks, camera calibration and correlation settings.';
     $('methodDetails').textContent='Square Saint-Venant torsion → inverse pinhole rendering with cubic interpolation → independent affine ZNCC matching across cameras and time → cycle, epipolar, reprojection and neighbour checks → 3D triangulation → local quadratic surface fitting → Green–Lagrange surface strain. Ground truth is used only after reconstruction for validation. Interior stress is analytical; no measured bulk stress is inferred from one face.';
-    $('methodDetails').textContent+=(s.preprocessing?.sigma_px?' Mild Gaussian denoising (σ = 0.5 px) is applied identically after capture and before all matching; original images are preserved.':' DIC denoising is off.');
+    $('methodDetails').textContent+=(s.preprocessing?.kernel_radius_px?` ${api.denoiseLabel(s.preprocessing)} is applied after capture and before all matching; original images are preserved.`:' DIC denoising is off.');
     $('warnings').replaceChildren(...c.warnings.map(text=>{const p=document.createElement('p');p.textContent=text;return p;}));
     $('raw').textContent=JSON.stringify({config:c,summary:s,calibration:d.calibration},null,2);
     $('download').href=d.asset_prefix+'download.zip';$('report').href=d.asset_prefix+'report.html';
     $('download').classList.remove('disabled');$('report').classList.remove('disabled');
-    const smoothed=!!s.preprocessing?.sigma_px;
+    const smoothed=!!s.preprocessing?.kernel_radius_px;
     $('stereoImageMode').querySelector('[value="smoothed"]').disabled=!smoothed;
     if(lastRun!==d.run_id){lastRun=d.run_id;loaded={};
       $('stereoImageMode').value=smoothed?'smoothed':'original';
@@ -36,10 +36,10 @@ window.StereoLab=(()=>{
   function render(){
     const d=api?.getResult();if(!d?.stereo)return;
     const r=d.stereo_result,f=d.fields[$('stereoField').value],n=r.valid.length;
-    const sigma=d.summary.preprocessing?.sigma_px||0,smoothed=sigma>0&&$('stereoImageMode').value==='smoothed';
+    const sigma=d.summary.preprocessing?.kernel_radius_px||0,smoothed=sigma>0&&$('stereoImageMode').value==='smoothed';
     $('stereoPreprocessing').textContent=sigma>0
-      ?`DIC used Mild Gaussian denoising (σ = ${sigma} px) on all four images. Showing ${smoothed?'smoothed DIC inputs':'original camera images'}. Switching this preview does not change the measurements. Filtering excludes boundary-affected support; exact floating-point inputs are in the run download.`
-      :'DIC denoising: Off. These original camera images were used for matching. Select Mild in DIC & imaging settings and run again to see smoothed inputs.';
+      ?`DIC used ${api.denoiseLabel(d.summary.preprocessing)} on all four images. Showing ${smoothed?'smoothed DIC inputs':'original camera images'}. Switching this preview does not change the measurements. Filtering excludes boundary-affected support; exact floating-point inputs are in the run download.`
+      :'DIC denoising: Off. These original camera images were used for matching. Select a filter in DIC & imaging settings and run again to see smoothed inputs.';
     for(const [k,key] of keys.entries()){
       const {c,w,h}=cv('stereo_'+key),im=loaded[key+(smoothed?'_smoothed':'')];c.fillStyle='#eff2ee';c.fillRect(0,0,w,h);if(!im||w<=16||h<=16)continue;
       const scale=Math.min((w-16)/im.width,(h-16)/im.height),x=(w-im.width*scale)/2,y=(h-im.height*scale)/2;

@@ -30,10 +30,10 @@ class StereoDenoisingTests(unittest.TestCase):
         np.testing.assert_array_equal(filtered['test'][support['test']],other['test'][support['test']])
 
     def test_allowed_settings(self):
-        for sigma in [0,.5]:
+        for sigma in [0,.5,.7,1,'wiener']:
             c=build_config(dict(benchmark='square_torsion',denoise_sigma=sigma))
             self.assertEqual(c['dic']['denoise_sigma'],sigma)
-        for sigma in [-1,.2,1,float('nan'),True]:
+        for sigma in [-1,.2,1.1,float('nan'),True]:
             with self.subTest(sigma=sigma),self.assertRaises(ValueError):
                 build_config(dict(benchmark='square_torsion',denoise_sigma=sigma))
 

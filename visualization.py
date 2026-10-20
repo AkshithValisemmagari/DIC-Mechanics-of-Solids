@@ -55,8 +55,10 @@ def write_report(b, out):
     import json
     summary = html.escape(json.dumps(b['summary'], indent=2))
     name = html.escape(b['config']['benchmark'].replace('_', ' ').title())
-    sigma=b['summary'].get('preprocessing',{}).get('sigma_px',0)
-    preprocessing=('Mild Gaussian denoising (sigma 0.5 px) was applied to both captured images before DIC. Original captures are preserved. Exact floating-point DIC inputs are in dic_input_images.npz.' if sigma else 'DIC denoising: Off.')
+    meta=b['summary'].get('preprocessing',{})
+    sigma=meta.get('kernel_radius_px',0)
+    label=('Local Wiener denoising (5 x 5 px)' if meta.get('method')=='wiener' else f"Gaussian denoising (sigma {meta.get('sigma_px',0)} px)")
+    preprocessing=(f'{label} was applied to both captured images before DIC. Original captures are preserved. Exact floating-point DIC inputs are in dic_input_images.npz.' if sigma else 'DIC denoising: Off.')
     previews=(''.join(f'<h3>{key.title()} · smoothed DIC input</h3><img src="{key}_smoothed.png" alt="Smoothed {key} DIC input">' for key in ('reference','deformed')) if sigma else '')
     page = f'''<!doctype html><html><head><meta charset="utf-8"><title>{name} — DIC report</title>
 <style>body{{font:16px system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#183344;background:#f7fafc}}img{{width:100%;background:white}}pre{{white-space:pre-wrap;background:#e8eff3;padding:24px;border-radius:12px}}h1{{font-size:34px}}p{{line-height:1.6}}</style></head>

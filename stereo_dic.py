@@ -103,7 +103,7 @@ def reconstruct(images,masks,rig,settings,strain_radius,progress=None):
     matchers=[ImageMatcher(images[k],masks[k],settings['subset_size']) for k in keys]
     a,b,c,d=matchers;H,W=images[keys[0]].shape;h=settings['subset_size']//2;step=settings['step'];radius=settings['search_radius']
     # Keep the original candidate grid for fair Off/Mild coverage comparisons.
-    candidate=a if not preprocessing['sigma_px'] else ImageMatcher(raw_images[keys[0]],raw_masks[keys[0]],settings['subset_size'])
+    candidate=a if not preprocessing['kernel_radius_px'] else ImageMatcher(raw_images[keys[0]],raw_masks[keys[0]],settings['subset_size'])
     rows,cols=np.nonzero(candidate.mask)
     def axis(lo,hi):
         lo+=h+1;hi-=h+1

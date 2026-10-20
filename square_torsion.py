@@ -106,8 +106,8 @@ def build_square_config(data,E_gpa,nu,L,number,defaults,material_name):
     if subset%2==0:raise ValueError('Subset size must be odd.')
     radius=number(data,'fit_radius_px',20,100)
     if radius<2.1*step:raise ValueError('Strain fit radius must be at least 2.1 times grid spacing.')
-    denoise=number(data,'denoise_sigma',0,.5)
-    if denoise not in (0,.5):raise ValueError('DIC denoising must be Off (0) or Mild (0.5 px).')
+    from image_preprocessing import validate_denoising
+    denoise=validate_denoising(data.get('denoise_sigma',0))
     seed=number(data,'seed',0,2147483647,True)
     return dict(benchmark='square_torsion',stereo=True,length_m=L,side_m=side,torque_nm=T,rotation_reference_m=L/2,
         material=dict(youngs_modulus_pa=E_gpa*1e9,poisson_ratio=nu),

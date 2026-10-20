@@ -1,7 +1,29 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DIC Studio · MOS-DIC Virtual Lab</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header class="masthead"><a class="brand" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24M4 16h24M4 26h24M6 4v24M16 4v24M26 4v24"/></svg>DIC Studio<span>MOS-DIC Virtual Lab</span></a><div class="local"><i></i> Interactive experiment workspace</div></header>
+<header class="masthead"><a class="brand" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"
+     style="width:56px;height:56px;flex-shrink:0">
+  <g style="fill:none;stroke:currentColor;stroke-width:2;
+            stroke-linecap:round;stroke-linejoin:round">
+    <path d="M11 9l2-4h6l2 4"/>
+    <rect x="3" y="9" width="26" height="18" rx="4"/>
+    <circle cx="16" cy="18" r="6"/>
+  </g>
+
+  <rect x="12.5" y="14.5" width="7" height="7" rx=".6"
+        style="fill:currentColor;fill-opacity:.08;
+               stroke:currentColor;stroke-width:.8"/>
+
+  <g style="fill:currentColor;stroke:none">
+    <circle cx="14" cy="16" r=".55"/>
+    <circle cx="17" cy="15.8" r=".45"/>
+    <circle cx="18" cy="18" r=".55"/>
+    <circle cx="15.5" cy="18" r=".6"/>
+    <circle cx="14" cy="20" r=".45"/>
+    <circle cx="17" cy="20" r=".55"/>
+    <circle cx="25" cy="13" r="1"/>
+  </g>
+</svg>DIC Studio<span>MOS-DIC Virtual Lab</span></a><div class="local"><i></i> Interactive experiment workspace</div></header>
 <div class="layout">
 <aside><div class="aside-head"><span class="eyebrow">EXPERIMENT SETUP</span><h2>Your specimen.<br>Your experiment.</h2><p>Choose a geometry, apply a load,<br>then measure its deformation.</p></div>
 <form id="experiment"><fieldset id="controls" disabled>
@@ -41,7 +63,7 @@
 <label id="torqueControl" hidden>Applied torque<div class="input-unit"><input id="torque_nm" type="number" value="20" min="-1000000" max="1000000" step="any"><span>N·m</span></div></label><small id="loadHint">Axial tension · stress = force / gross area</small>
 <div id="cameraControls"><label class="section-label">04 <span>Camera conditions</span></label><label class="range-label">Gaussian noise <output id="noiseOut">0.000</output></label><input id="noise_std" type="range" min="0" max="0.15" step="0.005" value="0" aria-label="Gaussian noise"><div class="range-ends"><span>Clean</span><span>0.15 intensity std</span></div>
 <label class="range-label">Gaussian blur <output id="blurOut">0.0 px</output></label><input id="blur_sigma" type="range" min="0" max="2.5" step="0.1" value="0" aria-label="Gaussian blur">
-<details><summary>DIC & imaging settings</summary><label id="denoiseControl">DIC denoising<select id="denoise_sigma"><option value="0" selected>Off</option><option value="0.5">Mild · 0.5 px</option></select><small>Processes captured images before matching. Camera blur is a separate setting.</small></label><div class="pair"><label>Subset size<select id="subset_size"><option>17</option><option>21</option><option selected>25</option><option>33</option><option>41</option></select></label><label>Grid spacing (px)<input id="step" type="number" value="16" min="8" max="32"></label></div><div class="pair"><label>Search radius (px)<input id="search_radius" type="number" value="12" min="4" max="36"></label><label>Strain fit radius (px)<input id="fit_radius_px" type="number" value="36" min="20" max="100"></label></div><div class="pair"><label>Speckle radius (px)<input id="speckle_radius_px" type="number" value="2.2" min="1" max="5" step="0.1"></label><label>Coverage setting<input id="density" type="number" value="0.4" min="0.15" max="0.65" step="0.05"></label></div><div class="pair"><label>Brightness gain<input id="brightness_gain" type="number" value="1" min="0.5" max="1.4" step="0.05"></label><label>Pattern seed<input id="seed" type="number" value="2039" min="0" max="2147483647"></label></div><p class="mini">Noise is independent in each image. The same seed reproduces a run. Larger subsets and fit windows reduce spatial resolution.</p></details>
+<details><summary>DIC & imaging settings</summary><label id="denoiseControl">DIC denoising<select id="denoise_sigma"><option value="0" selected>Off</option><option value="0.5">Gaussian · 0.5 px</option><option value="0.7">Gaussian · 0.7 px</option><option value="1">Gaussian · 1.0 px</option><option value="wiener">Local Wiener · 5 × 5 px</option></select><small>Processes captured images before matching. Camera blur is a separate setting.</small></label><div class="pair"><label>Subset size<select id="subset_size"><option>17</option><option>21</option><option selected>25</option><option>33</option><option>41</option></select></label><label>Grid spacing (px)<input id="step" type="number" value="16" min="8" max="32"></label></div><div class="pair"><label>Search radius (px)<input id="search_radius" type="number" value="12" min="4" max="36"></label><label>Strain fit radius (px)<input id="fit_radius_px" type="number" value="36" min="20" max="100"></label></div><div class="pair"><label>Speckle radius (px)<input id="speckle_radius_px" type="number" value="2.2" min="1" max="5" step="0.1"></label><label>Coverage setting<input id="density" type="number" value="0.4" min="0.15" max="0.65" step="0.05"></label></div><div class="pair"><label>Brightness gain<input id="brightness_gain" type="number" value="1" min="0.5" max="1.4" step="0.05"></label><label>Pattern seed<input id="seed" type="number" value="2039" min="0" max="2147483647"></label></div><p class="mini">Noise is independent in each image. The same seed reproduces a run. Larger subsets and fit windows reduce spatial resolution.</p></details>
 <label class="compare-toggle"><input id="compare_noise" type="checkbox"> Compare with no added noise</label><small>Runs the same specimen twice. Select noise above zero; all other settings stay identical.</small></div><p id="torsionOnlyNote" class="mini" hidden>Analytical shaft model. Torque twists the cross-sections; camera and DIC settings do not apply.</p>
 </fieldset><button id="run" class="run-button" type="submit" disabled><span>Run experiment</span><b>↗</b></button></form><div class="aside-foot">SMALL STRAIN · LINEAR ELASTICITY</div></aside>
 <main>

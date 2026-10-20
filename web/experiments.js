@@ -30,7 +30,7 @@ window.LabExperiments=(()=>{
     const hints=shaft?['Analytical · degrees','Analytical · MPa','Analytical · MPa','Analytical model and report']:['Measured vs analytical · pixels','Accepted / candidate centres','On candidate centres · pixels','Images → fields → validation'];
     document.querySelectorAll('.metrics>div').forEach((el,i)=>{el.querySelector('label').textContent=labels[i];el.querySelector('small').textContent=hints[i];});
     if(lastRun!==data.run_id){lastRun=data.run_id;$('profileLine').dataset.initial='1';}
-    if(!shaft&&data.baseline){for(const o of $('noiseImage').options){if(o.value.includes('_smoothed'))o.disabled=!data.summary.preprocessing?.sigma_px;}if($('noiseImage').selectedOptions[0]?.disabled)$('noiseImage').value='deformed.png';$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}
+    if(!shaft&&data.baseline){for(const o of $('noiseImage').options){if(o.value.includes('_smoothed'))o.disabled=!data.summary.preprocessing?.kernel_radius_px;}if($('noiseImage').selectedOptions[0]?.disabled)$('noiseImage').value='deformed.png';$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}
   }
   function profile(){
     const d=result();if(!d||d.analysis_only||d.stereo)return;
