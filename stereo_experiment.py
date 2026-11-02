@@ -69,8 +69,8 @@ def run_stereo(config,run_id,directory,progress=None):
         summary=summary,calibration=rig.metadata(),stereo_result=measured,fields=fields,x_m=xy[:,0],y_m=xy[:,1])
     payload=json_safe(payload)
     for filename,data in [('config.json',config),('summary.json',summary),('camera_calibration.json',rig.metadata())]:
-        (directory/filename).write_text(json.dumps(json_safe(data),indent=2,allow_nan=False))
-    with (directory/'stereo_fields.csv').open('w',newline='') as stream:
+        (directory/filename).write_text(json.dumps(json_safe(data),indent=2,allow_nan=False),encoding='utf-8')
+    with (directory/'stereo_fields.csv').open('w',newline='',encoding='utf-8') as stream:
         writer=csv.writer(stream);keys=list(fields)
         writer.writerow(['x_m','y_m','valid_displacement','status']+[f'{k}_{kind}_{fields[k]["unit"]}' for k in keys for kind in ['truth','measured','error']])
         for i in range(len(xy)):
