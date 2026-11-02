@@ -65,8 +65,14 @@ def run_experiment(config, output_dir=None, make_plots=True):
                   true_stress=true_stress, invariants=derived, summary=summary)
     if output_dir is not None:
         out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
-        (out/'config.json').write_text(json.dumps(config, indent=2)+'\n')
-        (out/'summary.json').write_text(json.dumps(summary, indent=2, allow_nan=False)+'\n')
+        (out/'config.json').write_text(
+    json.dumps(config, indent=2) + '\n',
+    encoding='utf-8'
+)
+        (out/'summary.json').write_text(
+    json.dumps(summary, indent=2, allow_nan=False) + '\n',
+    encoding='utf-8'
+)
         save_image(out/'reference.png', ref); save_image(out/'deformed.png', deformed)
         if sigma:
             for key,im in inputs.items():

@@ -26,8 +26,11 @@ def compare_payloads(baseline,noisy):
 
 
 def save_comparison(comparison,out):
-    (out/'noise_comparison.json').write_text(json.dumps(comparison,indent=2,allow_nan=False))
-    with (out/'noise_comparison.csv').open('w',newline='') as file:
+    (out/'noise_comparison.json').write_text(
+    json.dumps(comparison, indent=2, allow_nan=False),
+    encoding='utf-8'
+)
+    with (out/'noise_comparison.csv').open('w', newline='', encoding='utf-8') as file:
         writer=csv.writer(file)
         writer.writerow(['field','unit','common_count','baseline_valid','noisy_valid','baseline_rmse','noisy_rmse','baseline_max_abs','noisy_max_abs'])
         for key,v in comparison.items():
@@ -35,4 +38,8 @@ def save_comparison(comparison,out):
     import html
     rows=''.join('<tr>'+''.join('<td>'+html.escape(str(x))+'</td>' for x in [v['label'],v['unit'],v['common_count'],v['baseline']['rmse'],v['noisy']['rmse']])+'</tr>' for v in comparison.values())
     section='<h2>Paired Gaussian noise experiment</h2><p>Identical speckle seed, load, camera blur/brightness and DIC settings; only Gaussian noise differs. Baseline still includes quantization and selected blur. Errors below use common valid centres. A single noisy trial need not worsen every metric.</p><table><tr><th>Field</th><th>Unit</th><th>Common n</th><th>Baseline RMSE</th><th>Noisy RMSE</th></tr>'+rows+'</table><p><a href="baseline/report.html">Baseline report</a> · <a href="noise_comparison.csv">Comparison CSV</a></p>'
-    report=out/'report.html';report.write_text(report.read_text().replace('</body>',section+'</body>'))
+    report = out/'report.html'
+    report.write_text(
+        report.read_text(encoding='utf-8').replace('</body>', section+'</body>'),
+        encoding='utf-8'
+    )

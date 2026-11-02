@@ -37,10 +37,15 @@ def run_robustness(base_config, settings, output_dir):
                                  coverage_fraction=s['coverage_fraction'], valid_subsets=s['valid_displacement_subsets']))
                 print(f'  {factor}={level} seed={seed}: RMSE={rows[-1]["displacement_rmse_px"]}', flush=True)
                 # Checkpoint every completed trial.
-                with (out/'experiment_results.csv').open('w', newline='') as f:
+                with (out/'experiment_results.csv').open('w', newline='', encoding='utf-8') as f:
                     writer=csv.DictWriter(f, fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
-    (out/'study_settings.json').write_text(json.dumps(settings, indent=2))
-    (out/'base_config.json').write_text(json.dumps(base, indent=2))
+    (out/'study_settings.json').write_text(
+    json.dumps(settings, indent=2),
+    encoding='utf-8')
+    (out/'base_config.json').write_text(
+        json.dumps(base, indent=2),
+        encoding='utf-8'
+    )
     fig, axes = plt.subplots(2, 3, figsize=(13, 7), layout='constrained')
     grouped=[]
     for ax, (factor, levels) in zip(axes.flat, settings['factors'].items()):
@@ -56,7 +61,7 @@ def run_robustness(base_config, settings, output_dir):
     axes.flat[-1].axis('off')
     axes.flat[-1].text(0, .9, 'Error bars: sample standard deviation\nacross independent noise seeds.\n\nOne factor changes at a time.\nSpeckle realization held fixed.\nFailure and coverage in CSV.\nNo monotonic trend is assumed.', va='top')
     fig.savefig(out/'robustness_summary.png',dpi=160);plt.close(fig)
-    with (out/'grouped_results.csv').open('w',newline='') as f:
+    with (out/'grouped_results.csv').open('w', newline='', encoding='utf-8') as f:
         w=csv.DictWriter(f,fieldnames=list(grouped[0]));w.writeheader();w.writerows(grouped)
-    (out/'report.html').write_text('<!doctype html><meta charset="utf-8"><title>DIC robustness study</title><body style="font:16px system-ui;max-width:1100px;margin:40px auto"><h1>DIC robustness study</h1><p>Actual repeated trials; independent camera noise in both images. Noise is specified on the 0–1 intensity scale; blur and speckle radius in pixels. Error bars are sample standard deviations, not confidence intervals.</p><img style="width:100%" src="robustness_summary.png"><p>See experiment_results.csv for strain/stress errors, match failures and coverage. Study settings and the base configuration are saved alongside the results. Different subset sizes change spatial resolution and eligible centres; this is not a fixed-centre comparison.</p></body>')
+    (out/'report.html').write_text('<!doctype html><meta charset="utf-8"><title>DIC robustness study</title><body style="font:16px system-ui;max-width:1100px;margin:40px auto"><h1>DIC robustness study</h1><p>Actual repeated trials; independent camera noise in both images. Noise is specified on the 0–1 intensity scale; blur and speckle radius in pixels. Error bars are sample standard deviations, not confidence intervals.</p><img style="width:100%" src="robustness_summary.png"><p>See experiment_results.csv for strain/stress errors, match failures and coverage. Study settings and the base configuration are saved alongside the results. Different subset sizes change spatial resolution and eligible centres; this is not a fixed-centre comparison.</p></body>', encoding='utf-8')
     return rows

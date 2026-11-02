@@ -148,7 +148,10 @@ def execute(config,run_id,session_id):
                 payload['noise_comparison']=compare_payloads(base_payload,payload)
                 save_comparison(payload['noise_comparison'],directory)
         payload['elapsed_s']=round(time.perf_counter()-started,2)
-        (directory/'interactive_result.json').write_text(json.dumps(payload,allow_nan=False))
+        (directory/'interactive_result.json').write_text(
+    json.dumps(payload, allow_nan=False),
+    encoding='utf-8'
+)
         with LOCK:
             state.update(status='done',stage='Experiment complete',result=payload,error=None,updated=time.monotonic())
             while len(state['runs'])>MAX_SAVED_RUNS:

@@ -57,7 +57,7 @@ class ServerWorkflowTests(unittest.TestCase):
                     self.assertIsNone(archive.testzip())
                     self.assertIn('mechanical_fields.csv',archive.namelist())
                     self.assertIn('interactive_result.json',archive.namelist())
-                self.assertIn(b'Fieldlab',self.get('/'))
+                self.assertIn(b'DIC Studio', self.get('/'))
 
     def wait_result(self):
         deadline=time.monotonic()+90

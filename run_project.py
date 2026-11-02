@@ -25,19 +25,22 @@ def main():
         selected=names if args.benchmark=='all' else {args.benchmark:names[args.benchmark]}
         configs=[args.config] if args.config else [ROOT/'configs'/f'{name}.json' for name in selected.values()]
         for file in configs:
-            config=json.loads(file.read_text())
+            config=json.loads(file.read_text(encoding='utf-8'))
             target='axial_bar_dic' if config['benchmark']=='axial_bar' else config['benchmark']
             print('Running '+target,flush=True)
             bundle=run_experiment(config,args.output_dir/target)
             summaries.append(bundle['summary'])
             print(json.dumps(bundle['summary'],indent=2),flush=True)
     if args.robustness or args.robustness_only:
-        base=json.loads((ROOT/'configs/axial_bar_dic.json').read_text())
-        settings=json.loads(args.study_config.read_text())
+        base=json.loads((ROOT/'configs/axial_bar_dic.json').read_text(encoding='utf-8'))
+        settings=json.loads(args.study_config.read_text(encoding='utf-8'))
         run_robustness(base,settings,args.output_dir/'robustness')
     args.output_dir.mkdir(parents=True,exist_ok=True)
     if summaries:
-        (args.output_dir/'benchmark_summary.json').write_text(json.dumps(summaries,indent=2))
+        (args.output_dir/'benchmark_summary.json').write_text(
+    json.dumps(summaries, indent=2),
+    encoding='utf-8'
+)
     # Only link reports that exist, so single-benchmark runs have no dead links.
     links=[]
     for title,folder in [('Axial bar','axial_bar_dic'),('Cantilever','cantilever'),('Plate with hole','plate_with_hole'),('Robustness study','robustness')]:
