@@ -41,8 +41,8 @@ def run_torsion(config,run_id,output_dir):
     answer=solve_torsion(config)
     payload=dict(run_id=run_id,config=config,analysis_only=True,torsion=answer,
                  bounds=[0,config['length_m'],-config['radius_m'],config['radius_m']])
-    (out/'config.json').write_text(json.dumps(config,indent=2))
-    (out/'summary.json').write_text(json.dumps(answer,indent=2))
+    (out/'config.json').write_text(json.dumps(config,indent=2),encoding='utf-8')
+    (out/'summary.json').write_text(json.dumps(answer,indent=2),encoding='utf-8')
     np.savetxt(out/'torsion_twist.csv',np.column_stack((answer['x_m'],answer['twist_deg'])),delimiter=',',header='x_m,twist_deg',comments='')
     np.savetxt(out/'torsion_stress.csv',np.column_stack((answer['r_m'],answer['shear_mpa'])),delimiter=',',header='radius_m,signed_shear_mpa',comments='')
     import matplotlib.pyplot as plt
@@ -54,5 +54,5 @@ def run_torsion(config,run_id,output_dir):
     for a in axes:a.grid(alpha=.2)
     fig.savefig(out/'torsion_analysis.png',dpi=150);plt.close(fig)
     import html
-    (out/'report.html').write_text('<!doctype html><meta charset="utf-8"><title>Torsion report</title><style>body{font:16px system-ui;max-width:1000px;margin:40px auto;padding:20px}img{width:100%}pre{white-space:pre-wrap}</style><h1>Solid circular shaft: analytical torsion</h1><p>No DIC or camera-based measurement is performed. x is the shaft axis; positive torque rotates y toward z. Reference end: θ(0)=0.</p><p>G=E/[2(1+ν)], J=πR⁴/2, θ(x)=Tx/(GJ), τ(r)=Tr/J, σVM=√3|τ|. Curves use actual load, not visual magnification.</p><img src="torsion_analysis.png" alt="Analytical twist and radial shear stress"><pre>'+html.escape(json.dumps({k:v for k,v in answer.items() if not isinstance(v,list)},indent=2))+'</pre><p>'+html.escape(' '.join(config['warnings']))+'</p>')
+    (out/'report.html').write_text('<!doctype html><meta charset="utf-8"><title>Torsion report</title><style>body{font:16px system-ui;max-width:1000px;margin:40px auto;padding:20px}img{width:100%}pre{white-space:pre-wrap}</style><h1>Solid circular shaft: analytical torsion</h1><p>No DIC or camera-based measurement is performed. x is the shaft axis; positive torque rotates y toward z. Reference end: θ(0)=0.</p><p>G=E/[2(1+ν)], J=πR⁴/2, θ(x)=Tx/(GJ), τ(r)=Tr/J, σVM=√3|τ|. Curves use actual load, not visual magnification.</p><img src="torsion_analysis.png" alt="Analytical twist and radial shear stress"><pre>'+html.escape(json.dumps({k:v for k,v in answer.items() if not isinstance(v,list)},indent=2))+'</pre><p>'+html.escape(' '.join(config['warnings']))+'</p>',encoding='utf-8')
     return payload

@@ -70,4 +70,4 @@ def write_report(b, out):
 <h2>Measured results</h2><pre>{summary}</pre>
 <p>These results include 8-bit quantization and interpolation. Stress is inferred using the specified elastic constants. Invalid measurements are excluded from RMSE and included in coverage/failure counts. The hole benchmark samples an infinite plate; finite subsets cannot recover its edge peak directly. The cantilever benchmark uses Saint-Venant end loading, with local clamp effects excluded.</p>
 <p>See config.json for all inputs, dic_displacements.csv for match status, mechanical_fields.csv for recovered fields, and errors.csv for numerical differences.</p></body></html>'''
-    (out/'report.html').write_text(page)
+    (out/'report.html').write_text(page,encoding='utf-8')
