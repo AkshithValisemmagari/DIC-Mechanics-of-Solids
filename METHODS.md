@@ -134,6 +134,15 @@ ZNCC = sum[(f - mean(f))(g - mean(g))]
        / sqrt(sum[(f - mean(f))²] sum[(g - mean(g))²])
 ```
 
+Only integer target windows whose full subset lies within the processed target
+support mask can supply a seed. This includes the existing denoising and
+interpolation safety margins. If no supported window exists in the search,
+the subset is rejected with target-support status 5 before refinement. The
+mapped subset is still checked after refinement, since an affine fit can move
+or distort it across a boundary. The same initialization rule is used for
+stereo matching, which reports `target_support` for this rejection. These
+checks do not establish that a supported correlation peak is the correct match.
+
 Subpixel refinement fits six local affine parameters using bounded nonlinear
 least squares. For offsets dc,dr from the reference subset centre:
 

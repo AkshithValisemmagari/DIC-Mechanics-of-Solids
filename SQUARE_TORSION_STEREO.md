@@ -42,7 +42,7 @@ Two ideal calibrated pinhole cameras observe the front face. Each camera pixel i
 The measurement module accepts images, support masks, camera calibration and correlation settings. It receives no torque, elastic constants, displacement field, warping function or analytical stress.
 
 1. Full reference subsets are sampled on an integer-pixel grid centred on the supported face.
-2. Integer ZNCC supplies search seeds. A six-parameter affine fit with cubic spline image sampling and an analytic intensity Jacobian refines each match.
+2. Integer ZNCC supplies search seeds only from fully supported target windows, using the existing denoising/interpolation mask margins. A search with no supported window is rejected as `target_support`. A six-parameter affine fit with cubic spline image sampling and an analytic intensity Jacobian refines each match; target support is checked again after refinement.
 3. Correspondences are checked across cameras and time, including independently matched routes and a reverse temporal match. Rectified camera pairs use a narrow epipolar seed search.
 4. Fits must converge, remain inside support and parameter bounds, and pass minimum ZNCC 0.85, cycle error 0.30 px, epipolar residual 0.25 px, and reprojection residual 0.20 px. A local image-motion consistency check flags isolated outliers. These checks detect inconsistency; they do not prove an estimate is exact.
 5. Calibrated triangulation reconstructs each material point before and after loading. Their difference gives u, v and w in metres.

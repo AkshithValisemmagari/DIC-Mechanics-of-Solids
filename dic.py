@@ -9,6 +9,7 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.optimize import least_squares
 from scipy.ndimage import map_coordinates, binary_erosion
 from image_preprocessing import prepare_images
+from dic_support import supported_subset_centres
 
 
 def normalized(a):
@@ -16,7 +17,8 @@ def normalized(a):
     return b/max(np.linalg.norm(b), 1e-12)
 
 
-def integer_match(template, search):
+def integer_match(template, search, valid_windows=None):
+    """Best integer ZNCC seed, or None when no target window is supported."""
     t = template-template.mean()
     kernel = np.ones(template.shape)
     sums = correlate(search, kernel, mode='valid', method='fft')
@@ -24,6 +26,10 @@ def integer_match(template, search):
     numerator = correlate(search, t, mode='valid', method='fft')
     denominator = np.linalg.norm(t)*np.sqrt(np.maximum(sums2-sums*sums/template.size, 0))
     score = np.divide(numerator, denominator, out=np.full_like(numerator, -1.0), where=denominator > 1e-10)
+    if valid_windows is not None:
+        if not np.any(valid_windows):
+            return None
+        score = np.where(valid_windows, score, -np.inf)
     row, col = np.unravel_index(np.argmax(score), score.shape)
     return row, col, score[row, col]
 
@@ -51,6 +57,7 @@ def run_dic(reference, deformed, mask_reference=None, mask_deformed=None,
     # Extra support avoids sampling interpolation footprints across a hole.
     mr = binary_erosion(mr, iterations=3)
     md = binary_erosion(md, iterations=3)
+    target_centres = supported_subset_centres(md, subset_size)
     spline = RectBivariateSpline(np.arange(deformed.shape[0]), np.arange(deformed.shape[1]), deformed)
     yy, xx = np.mgrid[-h:h+1, -h:h+1]
     dx, dy = xx.ravel(), yy.ravel()
@@ -59,7 +66,7 @@ def run_dic(reference, deformed, mask_reference=None, mask_deformed=None,
         for cx in range(margin, reference.shape[1]-margin, step):
             # Columns: cx, cy, u, v, du/dc, du/dr, dv/dc, dv/dr, zncc, valid, status
             # status: 0 accepted; 1 reference mask; 2 flat; 3 optimizer;
-            # 4 correlation; 5 mapped mask; 6 parameter bound.
+            # 4 correlation; 5 target support (integer or mapped); 6 parameter bound.
             row = [cx, cy]+[np.nan]*7+[0, 1]
             patch = reference[cy-h:cy+h+1, cx-h:cx+h+1]
             if not mr[cy-h:cy+h+1, cx-h:cx+h+1].all():
@@ -68,7 +75,12 @@ def run_dic(reference, deformed, mask_reference=None, mask_deformed=None,
                 row[-1] = 2; results.append(row); continue
             search = deformed[cy-h-search_radius:cy+h+search_radius+1,
                               cx-h-search_radius:cx+h+search_radius+1]
-            iy, ix, _ = integer_match(patch, search)
+            valid_windows = target_centres[cy-search_radius:cy+search_radius+1,
+                                           cx-search_radius:cx+search_radius+1]
+            seed = integer_match(patch, search, valid_windows)
+            if seed is None:
+                row[-1] = 5; results.append(row); continue
+            iy, ix, _ = seed
             p0 = np.array([ix-search_radius, iy-search_radius, 0, 0, 0, 0], float)
             target = normalized(patch.ravel())
             def coords(p):
