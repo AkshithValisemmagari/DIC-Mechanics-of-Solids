@@ -28,7 +28,12 @@ const output=process.env.LAB_BROWSER_OUTPUT||'outputs/browser-check';
    await page.locator('[data-tab="images"]').click();
    assert((await page.locator('#subsetReverse').innerText()).includes('Return error:'));
    assert((await page.locator('#buildInfo').innerText()).includes('Server build'));
-   if(name==='mobile'){await page.locator('#jumpToResults').click();assert((await page.url()).endsWith('#experimentResults'));}
+   await page.waitForLoadState('networkidle');
+   await page.screenshot({path:path.join(output,name+'-inspector.png'),fullPage:true});
+   if(name==='mobile'){
+    await page.locator('#jumpToResults').click();assert((await page.url()).endsWith('#experimentResults'));
+    await page.locator('a[href="#experimentSetup"]').click();assert((await page.url()).endsWith('#experimentSetup'));
+   }
    await page.locator('[data-object="plate_with_hole"]').click();
    await page.locator('#force_n').fill('0');await run();
    const data=await(await context.request.get(base+'/api/result')).json();
