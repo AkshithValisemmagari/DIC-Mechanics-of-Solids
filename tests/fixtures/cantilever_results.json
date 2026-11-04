@@ -1,0 +1,15 @@
+{
+  "candidate_subsets":147,"eligible_reference_subsets":147,"valid_displacement_subsets":126,
+  "coverage_fraction":0.8571428571428571,"eligible_match_coverage_fraction":0.8571428571428571,
+  "eligible_match_failure_fraction":0.1428571428571429,
+  "status_counts":{"0":126,"3":8,"5":3,"6":1,"7":5,"8":4},
+  "displacement_px":{"n_valid":126,"component_rmse":[0.1992637205917374,0.18901462856055157],"vector_rmse":0.27464988649905764,"max_vector_error":0.6421588842553346},
+  "strain":{"n_valid":125,"component_rmse":[0.007272244938422274,0.01038936148341897,0.018784470702089242],"vector_rmse":0.02266452554180667,"max_vector_error":0.07111410329010114},
+  "stress_pa":{"n_valid":125,"component_rmse":[650314414.6153787,851843317.908851,494328176.3707693],"vector_rmse":1180214481.38741,"max_vector_error":5117888696.624189},
+  "preprocessing":{"method":"gaussian","sigma_px":0.7,"kernel_radius_px":3},
+  "forward_backward":{"tolerance_px":0.3,"reverse_failures":5,"cycle_rejections":4},
+  "benchmark":"cantilever","pixel_size_m":[0.0003133159268929504,0.00018867924528301886],
+  "max_ground_truth_displacement_px":2.96955586703878,
+  "stress_component_order":["sigma_xx","sigma_yy","tau_xy"],
+  "strain_component_order":["epsilon_xx","epsilon_yy","engineering_gamma_xy"]
+}

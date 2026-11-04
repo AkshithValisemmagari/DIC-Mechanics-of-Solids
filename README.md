@@ -201,6 +201,16 @@ forward-accepted points and can increase runtime or reduce coverage. It cannot
 guarantee uniqueness for repeated texture. See `CONSISTENCY_VALIDATION.md` for
 measured checks and their limits. Stereo retains its existing cycle checks.
 
+**Readable measured results**
+
+Method & results now shows point counts, error tables and rejection reasons
+before the method explanation. Flat strain errors use microstrain and stress
+errors use MPa. Expand View component errors for individual components;
+Technical details retains the original JSON and a Copy JSON button. Coverage
+is not an accuracy rating, and combined stress error is not von Mises error.
+Stereo and analytical-only torsion retain their different interpretations.
+See `RESULTS_DASHBOARD.md` for display rules and verification scope.
+
 **Robustness study**
 
 The default runs 16 parameter settings × 3 independent noise seeds = 48 trials.
