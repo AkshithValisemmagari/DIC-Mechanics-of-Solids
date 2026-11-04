@@ -17,9 +17,10 @@ function assertCoverage(payload){
  const eligible=payload.stereo?s.candidate_subsets:s.eligible_reference_subsets;
  const pct=n=>n>0?(100*accepted/n).toFixed(1)+'%':'N/A';
  assert.equal($('metricValid').textContent,`${accepted} / ${eligible}`);
- assert.equal($('metricCoverageNote').textContent,payload.stereo?`${pct(s.candidate_subsets)} reference candidates`:`${pct(eligible)} eligible · ${pct(s.candidate_subsets)} all candidates`);
+ assert.equal($('metricCoverageNote').textContent,payload.stereo?`${pct(s.candidate_subsets)} of reference candidates`:`${pct(eligible)} of eligible locations`);
  assert(!$('coverageDetails').hidden);
- assert($('coverageDetails').textContent.includes('RMSE uses accepted points only'));
+ assert($('coverageExplanation').textContent.includes('RMSE uses accepted points only'));
+ assert(!$('matchQuality').hidden);
 }
 function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(new w.Event(event,{bubbles:true}));}
 (async()=>{
@@ -30,14 +31,15 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  w.eval(fs.readFileSync(root+'/web/stereo.js','utf8'));
  let showCoverage;const stereoInit=w.StereoLab.init;
  w.StereoLab.init=api=>{showCoverage=api.showCoverage;stereoInit(api);};
+ w.eval(fs.readFileSync(root+'/web/presentation.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/app.js','utf8'));
- await until(()=>!$('controls').disabled);
+ await until(()=>!$('controls').disabled);assert($('buildInfo').textContent.includes('Server build'));assert($('jumpToResults').hidden);
  change('material','steel','change');assert.equal($('E_gpa').value,'200');
  $('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('state').textContent==='Experiment complete');
  assert(!$('download').classList.contains('disabled'));assert($('metricError').textContent!=='—');
  assert($('runCaption').textContent.includes('Steel'));assertCoverage(await(await w.fetch('/api/result')).json());
- w.document.querySelector('[data-tab="images"]').click();assert($('images').classList.contains('active'));
+ w.document.querySelector('[data-tab="images"]').click();assert($('images').classList.contains('active'));assert($('subsetReverse').textContent.includes('Return error:'));assert($('qualityTolerance').textContent.includes('0.30 px'));assert(!$('jumpToResults').hidden);
  w.document.querySelector('[data-tab="fields"]').click();change('field','von_mises','change');assert($('fieldStats').textContent.includes('Von Mises'));
  const previous=$('metricError').textContent;change('force_n','20000');assert.equal($('state').textContent,'Inputs changed');assert.equal($('metricError').textContent,previous);
  change('material','custom','change');assert.equal($('E_gpa').readOnly,false);
@@ -45,12 +47,12 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  change('force_n','0');$('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('state').textContent==='Experiment complete');assert($('methodDetails').textContent.includes('At zero load'));
  assert($('runCaption').textContent.includes('Plate with a hole'));
- const hole=await(await w.fetch('/api/result')).json();assertCoverage(hole);
+ const hole=await(await w.fetch('/api/result')).json();assertCoverage(hole);w.document.querySelector('[data-tab="fields"]').click();change('field','stress_xx','change');assert($('errorLegend').textContent.includes('Error: 0'));assert(!$('errorLegend').textContent.includes('e-12'));
  assert(hole.summary.eligible_reference_subsets<hole.summary.candidate_subsets);
  showCoverage({valid_displacement_subsets:0,eligible_reference_subsets:0,candidate_subsets:5});
  assert.equal($('metricValid').textContent,'0 / 0');
- assert.equal($('metricCoverageNote').textContent,'N/A eligible · 0.0% all candidates');
- assert(!$('coverageDetails').textContent.includes('NaN'));showCoverage(hole.summary);
+ assert.equal($('metricCoverageNote').textContent,'N/A of eligible locations');
+ assert(!$('coverageExplanation').textContent.includes('NaN'));showCoverage(hole.summary);
  change('force_n','999999999');$('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('message').className==='error');assert($('message').textContent.includes('force_n'));
  w.document.querySelector('[data-object="pure_bending"]').click();
@@ -78,7 +80,7 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  assert(shaft.fields.w.measured.some(v=>v!==null));
  for(const file of ['left_reference.png','right_deformed.png','stereo_fields.csv','camera_calibration.json','report.html','download.zip'])assert.equal((await w.fetch(shaft.asset_prefix+file)).status,200);
  if(process.env.LAB_PREVIEW_DIR)fs.writeFileSync(require('path').join(process.env.LAB_PREVIEW_DIR,'square-stereo-preview.json'),JSON.stringify(shaft));
- w.LabExperiments.configure({analysis_only:true,run_id:'coverage-visibility-check'});assert($('coverageDetails').hidden);
+ w.LabExperiments.configure({analysis_only:true,run_id:'coverage-visibility-check'});assert($('coverageDetails').hidden);assert($('matchQuality').hidden);
  w.document.querySelector('[data-object="axial_bar"]').click();$('compare_noise').checked=false;
  $('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('state').textContent==='Experiment complete');

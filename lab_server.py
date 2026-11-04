@@ -11,6 +11,7 @@ import shutil
 import json
 from pathlib import Path
 import secrets
+import subprocess
 import threading
 import time
 import traceback
@@ -35,6 +36,24 @@ MAX_SESSIONS=64
 MAX_SAVED_RUNS=5
 MAX_PENDING_JOBS=4
 PENDING_JOBS=0
+
+APP_VERSION='2026.11.04-ui-clarity'
+
+
+def build_info():
+    """Capture the running build at startup, including archive deployments."""
+    revision=os.environ.get('LAB_BUILD_ID') or os.environ.get('RENDER_GIT_COMMIT')
+    if not revision:
+        try:
+            result=subprocess.run(['git','rev-parse','--short=12','HEAD'],cwd=ROOT,
+                                  capture_output=True,text=True,timeout=2,check=True)
+            revision=result.stdout.strip()
+        except (OSError,subprocess.SubprocessError):
+            revision='source-archive'
+    return dict(version=APP_VERSION,revision=str(revision)[:40])
+
+
+BUILD_INFO=build_info()
 
 
 def new_session():
@@ -111,7 +130,7 @@ def make_payload(b,run_id):
         'principal':{'label':'Major in-plane principal stress','unit':'MPa','truth':true_inv[:,0]/1e6,'measured':b['invariants'][:,0]/1e6},
         'von_mises':{'label':'Von Mises stress','unit':'MPa','truth':true_inv[:,2]/1e6,'measured':b['invariants'][:,2]/1e6}}
     p=dict(run_id=run_id,asset_prefix=f'/runs/{run_id}/',config=c,summary=b['summary'],mesh=mesh,boundary=boundary,hole=hole,
-           bounds=model.bounds,stress_surface=stress_surface(model),dic=d,fields=fields,true_disp=b['true_disp'],x_m=b['x'],y_m=b['y'])
+           bounds=model.bounds,stress_surface=stress_surface(model),consistency=b.get('consistency'),dic=d,fields=fields,true_disp=b['true_disp'],x_m=b['x'],y_m=b['y'])
     return clean_json(p)
 
 
@@ -122,16 +141,16 @@ def execute(config,run_id,session_id):
         started=time.perf_counter()
         with LOCK: state['stage']='Solving analytical shaft torsion…' if config.get('analysis_only') else 'Generating images and solving subpixel DIC…'
         directory=RUNS/run_id
+        def progress(message):
+            with LOCK: state['stage']=message
         if config.get('stereo'):
             from stereo_experiment import run_stereo
-            def progress(message):
-                with LOCK: state['stage']=message
             payload=run_stereo(config,run_id,directory,progress)
         elif config.get('analysis_only'):
             from torsion import run_torsion
             payload=run_torsion(config,run_id,directory)
         else:
-            b=run_experiment(config,directory)
+            b=run_experiment(config,directory,progress=progress)
             payload=make_payload(b,run_id)
             if config.get('compare_noise'):
                 from noise_comparison import compare_payloads, save_comparison
@@ -141,7 +160,8 @@ def execute(config,run_id,session_id):
                 baseline_config['user_inputs']['noise_std']=0
                 baseline_config['compare_noise']=False
                 baseline_config['user_inputs']['compare_noise']=False
-                baseline=run_experiment(baseline_config,directory/'baseline')
+                baseline=run_experiment(baseline_config,directory/'baseline',
+                    progress=lambda stage:progress('No-added-noise comparison · '+stage))
                 base_payload=make_payload(baseline,run_id)
                 base_payload['asset_prefix']=f'/runs/{run_id}/baseline/'
                 payload['baseline']=base_payload
@@ -202,7 +222,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith('/api/'):
             sid,state=self.session(create=True)
             if state is None: return self.json_response({'error':'The lab is busy. Please try again later.'},503)
-        if path=='/api/settings': return self.json_response(dict(defaults=DEFAULTS,materials=MATERIALS,token=state['token']))
+        if path=='/api/settings': return self.json_response(dict(defaults=DEFAULTS,materials=MATERIALS,token=state['token'],build=BUILD_INFO))
         if path=='/api/status':
             with LOCK: snapshot={k:state[k] for k in ('status','stage','job_id','error')}
             return self.json_response(snapshot)
@@ -231,7 +251,7 @@ class Handler(SimpleHTTPRequestHandler):
             allowed.update({'dic_input_images.npz','stereo_fields.csv','stereo_correspondences.csv','camera_calibration.json'})
             if filename not in allowed or not (folder/filename).is_file(): return self.send_error(404)
             f=folder/filename;raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
-        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js','/stereo.js'): return self.send_error(404)
+        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js','/stereo.js','/presentation.js'): return self.send_error(404)
         return super().do_GET()
     def do_POST(self):
         global PENDING_JOBS

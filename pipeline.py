@@ -15,7 +15,12 @@ from validation import summarize
 from visualization import plot_experiment, write_report
 
 
-def run_experiment(config, output_dir=None, make_plots=True):
+def run_experiment(config, output_dir=None, make_plots=True, progress=None):
+    """Run unchanged numerical stages; progress only reports stage transitions."""
+    def report(stage):
+        if progress is not None:
+            progress(stage)
+    report('Generating synthetic camera images…')
     model = Benchmark(config)
     ref, deformed, mr, md, truth = synthetic_pair(model, config)
     camera = config.get('camera', {})
@@ -25,10 +30,13 @@ def run_experiment(config, output_dir=None, make_plots=True):
     if erosion:
         mr = binary_erosion(mr, iterations=erosion)
         md = binary_erosion(md, iterations=erosion)
+    report('Preparing captured images for matching…')
     dic_settings=dict(config['dic']);sigma=dic_settings.pop('denoise_sigma',0)
     inputs,support,preprocessing=prepare_images({'reference':ref,'deformed':deformed},
                                               {'reference':mr,'deformed':md},sigma)
+    report('Matching subsets and verifying reverse matches…' if dic_settings.get('fb_tolerance_px', .3) is not None else 'Matching subsets…')
     dic, consistency = run_dic(inputs['reference'],inputs['deformed'],support['reference'],support['deformed'],return_diagnostics=True,**dic_settings)
+    report('Recovering strain and stress; comparing with ground truth…')
     xmin, xmax, ymin, ymax = model.bounds
     sx, sy = truth['sx'], truth['sy']
     x, y = xmin+dic[:, 0]*sx, ymax-dic[:, 1]*sy
@@ -67,6 +75,7 @@ def run_experiment(config, output_dir=None, make_plots=True):
                   strain=strain, stress=stress, true_strain=true_strain,
                   true_stress=true_stress, invariants=derived, summary=summary)
     if output_dir is not None:
+        report('Saving results and preparing the report…')
         out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
         (out/'config.json').write_text(
     json.dumps(config, indent=2) + '\n',
