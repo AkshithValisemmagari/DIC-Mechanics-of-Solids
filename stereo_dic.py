@@ -13,11 +13,13 @@ from scipy.spatial import cKDTree
 
 
 from image_preprocessing import prepare_images
+from dic_support import supported_subset_centres
 
 
 class ImageMatcher:
     def __init__(self,image,mask,subset):
         self.image=np.asarray(image,float);self.mask=binary_erosion(mask,iterations=3)
+        self.integer_support=supported_subset_centres(self.mask,subset)
         self.spline=RectBivariateSpline(np.arange(image.shape[0]),np.arange(image.shape[1]),image)
         self.h=subset//2;y,x=np.mgrid[-self.h:self.h+1,-self.h:self.h+1];self.dx=x.ravel();self.dy=y.ravel()
 
@@ -41,6 +43,9 @@ class ImageMatcher:
         sums=correlate(search,kernel,mode='valid',method='fft');sq=correlate(search*search,kernel,mode='valid',method='fft')
         numerator=correlate(search,ref.reshape(kernel.shape),mode='valid',method='fft')
         denom=np.sqrt(np.maximum(sq-sums*sums/ref.size,1e-14));scores=numerator/denom
+        valid_windows=target.integer_support[y0:y1+1,x0:x1+1]
+        if not valid_windows.any():return None,'target_support'
+        scores=np.where(valid_windows,scores,-np.inf)
         row,col=np.unravel_index(np.argmax(scores),scores.shape)
         seed=np.array([x0+col-centre[0],y0+row-centre[1],0,0,0,0],float)
         offset=guess-centre;lower=np.r_[offset-radius-1,[-.35]*4];upper=np.r_[offset+radius+1,[.35]*4]
