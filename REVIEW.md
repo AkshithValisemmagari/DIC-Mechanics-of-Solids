@@ -2,15 +2,18 @@
 
 ## Current verification — 2026-11-04
 
-This record applies to the flat-consistency/reference-environment follow-up based on main
-commit `c0b6f39` (after the export/coverage update). Tests were executed against
+This record applies to the UI-clarity follow-up based on main commit
+`e407fc0` (after the independent consistency update). Tests were executed against
 the checkout containing these follow-up changes, not merely inspected.
 
-- The complete Python suite passed **65 tests**.
+- The complete Python suite passed **67 tests**.
 - JavaScript syntax checks and measurement-profile tests passed.
 - The simulated-DOM UI workflow passed real API runs, exports, flat/stereo
   switching, coverage counts/percentages and the zero-eligible-point display.
-- Six new consistency tests cover affine motion/brightness, duplicate texture,
+- Two new presentation tests verify that progress observers preserve numeric
+  results exactly and that existing diagnostics are exposed without modifying
+  measurements. UI formatters cover reverse explanations and exact-zero labels.
+- Six retained consistency tests cover affine motion/brightness, duplicate texture,
   an unobservable whole-period shift, reverse support, forward-only comparisons,
   threshold rejection and diagnostic exports. The 45-case calibration and four
   specimen comparisons are reported in `CONSISTENCY_VALIDATION.md`.
@@ -23,7 +26,7 @@ the checkout containing these follow-up changes, not merely inspected.
 
 Execution environment: Linux, Python 3.12.14, NumPy 2.3.5, SciPy 1.17.0,
 Matplotlib 3.10.8 and Pillow 12.3.0. Optional JavaScript checks used Node.js
-24.22.1 and jsdom 30.1.2. The full Python dependency lock was installed with hash checking for this run;
+24.22.1 and jsdom 30.1.2. The full Python dependency lock is the reference environment used for this run;
 `requirements-reference.in` records its direct version pins. Node development
 dependencies are locked in `package-lock.json`. These are not evidence of
 testing every supported environment.
@@ -66,7 +69,8 @@ Displacement RMSE uses accepted, finite truth/measurement pairs. Coverage must
 be read alongside it. Flat eligible-reference coverage excludes candidates
 whose reference subsets cross the processed mask; all-candidate acceptance
 retains those grid candidates in its denominator. Zero eligible subsets give
-undefined eligible coverage, displayed as N/A. Strain/stress fits can retain
+undefined eligible coverage, displayed as N/A. All-grid acceptance and reference
+mask exclusions are shown in expandable coverage details. Strain/stress fits can retain
 fewer points than displacement matching. Stereo candidates have full raw
 reference-subset support; filtering and subsequent checks can reject more.
 
@@ -77,13 +81,12 @@ Camera noise/blur and DIC denoising are separate selected operations.
 
 ## Limits and historical records
 
-Canvas drawing is stubbed in the UI controller. Pixel appearance, fonts,
-responsive layout and live Safari/Chrome rendering were not verified in this
-follow-up: the Chromium binary download failed with an invalid/truncated ZIP.
-The provided real-browser smoke script and CI workflow must still pass in an
-environment where Chromium installs successfully. CI definitions target Linux
-Python 3.12/3.13 and desktop/mobile Chromium; their presence alone is not a CI
-pass. Public tunnel reachability, Render deployment and automatic Mac
+Canvas drawing is stubbed in the UI controller. Local UI tests do not verify pixel appearance or responsive layout. The CI
+workflow separately exercises real desktop/mobile Chromium, saves screenshots,
+and runs Python 3.12/3.13 tests. Inspect the PR checks/artifacts for the current
+revision: the workflow definition alone is not a CI pass. Safari is untested.
+The earlier consistency release passed its real-browser checks in CI despite
+a local Chromium download failure. See UI_CLARITY.md for this presentation scope. Public tunnel reachability, Render deployment and automatic Mac
 service recovery were not exercised. Synthetic tests with exact stereo
 calibration do not establish real-camera accuracy.
 

@@ -168,8 +168,9 @@ that any particular real material stays elastic at those stresses.
 | `field_comparison.png` | Analytical, recovered and error maps |
 
 Invalid strain/stress entries are NaN in CSV files. Only valid measurements enter
-RMSE. The top coverage card shows accepted / eligible reference subsets and
-percentages relative to eligible subsets and all grid candidates. Eligible
+RMSE. The top card shows matched / eligible reference locations and their
+percentage. Expand “How match coverage is calculated” for mask exclusions
+and acceptance across all grid candidates. Eligible
 reference subsets fit fully inside the processed reference mask. These counts
 describe displacement; strain/stress fitting may retain fewer points. Stereo
 candidates already require full raw reference support, and additional points
@@ -189,7 +190,13 @@ estimates remain in the diagnostic CSV but are excluded from recovered fields.
 `summary.json` records the effective threshold and rejection counts;
 `dic_consistency.csv` records every reverse outcome. A batch configuration can
 set `dic.fb_tolerance_px` to `null` for a controlled forward-only comparison.
-The current website enables 0.3 px. Reverse checking adds a second fit for
+The current website enables 0.3 px. A compact verification strip shows the
+existing tolerance and rejection counts; selecting a flat subset shows its
+existing return error, reverse correlation and rejection reason. These are
+presentation additions, not new acceptance rules. The server build is shown
+in the footer, and mobile jump links connect setup and results. Progress
+messages report actual calculation stages, not estimated point counts.
+Reverse checking adds a second fit for
 forward-accepted points and can increase runtime or reduce coverage. It cannot
 guarantee uniqueness for repeated texture. See `CONSISTENCY_VALIDATION.md` for
 measured checks and their limits. Stereo retains its existing cycle checks.

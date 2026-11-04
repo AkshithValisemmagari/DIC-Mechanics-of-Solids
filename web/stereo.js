@@ -8,7 +8,7 @@ window.StereoLab=(()=>{
     $('play').textContent='▶ Play';$('empty').hidden=true;$('state').className='state';$('state').textContent='Experiment complete';
     $('sceneTitle').textContent='Square beam · free warping';
     $('runCaption').textContent=`Square torsion · ${c.load_description.material_name} · ${fmt(c.torque_nm)} N·m · ${fmt(c.length_m*1000)} mm × ${fmt(c.side_m*1000)} mm square`;
-    const labels=['3D DISPLACEMENT RMSE','VALID / REFERENCE','MAX TRUE MOTION','EXPERIMENT TIME'];
+    const labels=['3D DISPLACEMENT RMSE','MATCHED POINTS','MAX TRUE MOTION','EXPERIMENT TIME'];
     const hints=['Vector error · mm','Accepted / candidate centres','On candidate centres · mm','Four images → 3D → validation'];
     document.querySelectorAll('.metrics>div').forEach((el,i)=>{el.querySelector('label').textContent=labels[i];el.querySelector('small').textContent=hints[i];});
     $('metricError').textContent=fmt(s.displacement_vector_rmse_mm,5);api.showCoverage(s,true);
@@ -52,13 +52,14 @@ window.StereoLab=(()=>{
     let lo=vals.length?Math.min(...vals):0,hi=vals.length?Math.max(...vals):1;
     if(hi-lo<1e-10){const pad=Math.max(1e-6,Math.abs(lo)*.05);lo-=pad;hi+=pad;}
     const error=f.measured.map((v,i)=>valid[i]?v-f.truth[i]:null),emax=Math.max(1e-9,...error.filter(finite).map(Math.abs));
+    for(const id of ['stereoTruth','stereoMeasured','stereoError']){const el=$(id),width=el.getBoundingClientRect().width;if(width>60)el.style.height=Math.min(260,Math.max(130,(width-60)*(d.bounds[3]-d.bounds[2])/(d.bounds[1]-d.bounds[0])+60))+'px';}
     for(const [key,values,isError] of [['Truth',f.truth,false],['Measured',f.measured,false],['Error',error,true]]){
       const {c,w,h}=cv('stereo'+key),p=api.pointTransform(w,h,d.bounds,30),a=p(d.bounds[0],d.bounds[2]),b=p(d.bounds[1],d.bounds[3]);
       c.strokeStyle='#ccdcd2';c.strokeRect(a[0],b[1],b[0]-a[0],a[1]-b[1]);
       for(let i=0;i<n;i++){const q=p(d.x_m[i],d.y_m[i]);c.fillStyle=valid[i]?api.color(isError?(values[i]+emax)/(2*emax):(values[i]-lo)/(hi-lo),isError):'#cbd1cc';c.beginPath();c.arc(...q,valid[i]?3:1.5,0,Math.PI*2);c.fill();}
       c.fillStyle='#607a70';c.font='10px system-ui';c.fillText('Reference face · x →',20,h-10);
       if(!valid.some(Boolean))c.fillText('No valid field estimates',30,h/2-15);
-      $('stereo'+key+'Legend').innerHTML=`<span>${fmt(isError?-emax:lo)}</span><span>${f.unit}</span><span>${fmt(isError?emax:hi)}</span><div class="gradient ${isError?'error':''}"></div>`;
+      $('stereo'+key+'Legend').innerHTML=isError&&LabPresentation.zeroError(error)?`<span class="zero-error">Error: 0 ${f.unit} · all valid points</span><div class="gradient zero"></div>`:`<span>${fmt(isError?-emax:lo)}</span><span>${f.unit}</span><span>${fmt(isError?emax:hi)}</span><div class="gradient ${isError?'error':''}"></div>`;
     }
     const s=f.statistics;$('stereoStats').textContent=`${f.label}: ${s.n_valid} valid values / ${n} candidates · RMSE ${fmt(s.rmse,5)} ${f.unit} · max |error| ${fmt(s.max_abs,5)} ${f.unit}. Grey marks indicate unavailable estimates. Magnitude RMSE differs from the vector RMSE in the top card.`;
     const row=+$('stereoRow').value,ids=d.y_m.map((y,i)=>Math.abs(y-row)<1e-10?i:-1).filter(i=>i>=0).sort((a,b)=>d.x_m[a]-d.x_m[b]);

@@ -74,3 +74,15 @@ or real-camera correctness. Browser binaries must be installed successfully.
 profile/controller/Chromium checks. It uses read-only repository permissions;
 the browser job uploads screenshots/logs as a review artifact. A committed
 workflow is not evidence of a successful CI run: inspect the PR's checks.
+
+
+## UI presentation regression checks
+
+`npm test` also checks display-only reverse explanations and exact-zero labels.
+`test_presentation_payload.py` verifies that adding a progress observer leaves
+images, displacement, strain, stress and summaries exactly unchanged, and that
+the API exposes existing reverse diagnostics without modifying measurements.
+The UI/browser workflows check the compact coverage details, verification strip,
+subset return information, build label, mobile jump links and shorter stereo
+field canvases. Progress is reported by stage; the solver is not instrumented
+with estimated per-point completion.
