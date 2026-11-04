@@ -10,14 +10,19 @@ from stereo_camera import StereoRig, generate_images
 from stereo_dic import reconstruct, surface_strain
 from stereo_experiment import run_stereo
 
+def trapezoid(y, x, **kwargs):
+    integrate = getattr(np, 'trapezoid', None)
+    if integrate is None:
+        integrate = getattr(np, 'trapz')
+    return integrate(y, x, **kwargs)
+
 
 class SquareMechanicsTests(unittest.TestCase):
     def test_torque_resultant_warping_and_boundary(self):
         m=SquareTorsion(.16,.02,70e9,.33,100)
         self.assertAlmostEqual(m.J/m.side**4,.140577,places=6)
         y,z=np.meshgrid(np.linspace(-m.a,m.a,301),np.linspace(-m.a,m.a,301));t1,t2=m.stress(y,z)
-        integrate=getattr(np,'trapezoid',np.trapz)
-        torque=integrate(integrate(y*t2-z*t1,y[0],axis=1),z[:,0])
+        torque=trapezoid(trapezoid(y*t2-z*t1,y[0],axis=1),z[:,0])
         self.assertLess(abs(torque-100),.01)
         q=np.linspace(-.009,.009,101)
         self.assertLess(abs(m.stress(m.a,q)[0]).max()/m.summary()['max_shear_pa'],.001)

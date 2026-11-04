@@ -5,6 +5,7 @@ from lab_config import build_config
 from mechanics import Benchmark
 from pipeline import run_experiment
 from lab_server import make_payload, clean_json
+from validation import field_errors, summarize
 import json
 
 
@@ -42,6 +43,28 @@ class LabConfigurationTests(unittest.TestCase):
         b=Benchmark(c);x=np.array([.018,.025]);y=np.array([.012,-.02]);h=1e-7
         up,vp=b.displacement(x+h,y);um,vm=b.displacement(x-h,y)
         np.testing.assert_allclose((up-um)/(2*h),b.strain(x,y)[0],rtol=1e-7)
+
+    def test_benchmark_rejects_non_finite_geometry(self):
+        hole=build_config(dict(benchmark='plate_with_hole'))
+        hole['hole_radius_m']=float('nan')
+        with self.assertRaisesRegex(ValueError,'hole_radius_m'):
+            Benchmark(hole)
+        beam=build_config(dict(benchmark='cantilever',force_n=1000))
+        beam['thickness_m']=float('inf')
+        with self.assertRaisesRegex(ValueError,'Beam dimensions'):
+            Benchmark(beam)
+
+    def test_validation_excludes_non_finite_truth_and_reports_eligible_coverage(self):
+        errors=field_errors([[1,2],[3,4]],[[1,2],[float('nan'),4]],[True,True])
+        self.assertEqual(errors['n_valid'],1)
+        self.assertEqual(errors['vector_rmse'],0)
+
+        dic=np.zeros((3,11));dic[:,9]=[1,0,0];dic[:,10]=[0,1,4]
+        fields=np.zeros((3,3))
+        summary=summarize(dic,np.zeros((3,2)),fields,fields,fields,fields)
+        self.assertAlmostEqual(summary['coverage_fraction'],1/3)
+        self.assertAlmostEqual(summary['eligible_match_coverage_fraction'],1/2)
+        self.assertAlmostEqual(summary['eligible_match_failure_fraction'],1/2)
 
     def test_non_finite_json_becomes_null(self):
         self.assertEqual(clean_json(np.array([1,np.nan,np.inf])),[1,None,None])

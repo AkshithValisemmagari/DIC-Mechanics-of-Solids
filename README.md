@@ -7,8 +7,9 @@ stress, and quantifies errors and imaging robustness.
 
 All seven calculation phases are implemented, with a local interactive interface.
 Choose one object, material, geometry and load, then run that experiment.
-The interactive lab includes pure bending and analytical circular-shaft torsion,
-measurement-line comparisons, and paired noise experiments.
+The interactive lab includes pure bending, analytical circular-shaft torsion,
+and square-section torsion with synthetic stereo DIC, as well as measurement-line
+comparisons and paired noise experiments.
 The archive also includes batch benchmark and robustness reports.
 
 **Start here**
@@ -17,7 +18,7 @@ The archive also includes batch benchmark and robustness reports.
 2. Install the dependencies using the commands below (once).
 3. Run `python main.py`. Your browser opens the local virtual lab.
 4. Select the object, material, dimensions and force, bending moment or torque. Click **Run experiment**.
-5. Explore **Deformation**, **Images & DIC**, **Field comparison**, **Noise comparison**, and **Method & results**. Torsion uses **Shaft analysis** instead of DIC views.
+5. Explore **Deformation**, **Images & DIC**, **Field comparison**, **Noise comparison**, and **Method & results**. Circular torsion is analytical-only and uses **Shaft analysis**; square torsion also has a **Stereo DIC** view.
 
 Keep the terminal running while using the lab. Press Ctrl+C to stop it.
 If the browser does not open automatically, use the localhost address printed
@@ -90,6 +91,7 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 | `pipeline.py` | Connect all phases and save reproducible experiment outputs |
 | `mechanics.py` | Axial bar, cantilever, pure bending and Kirsch hole analytical fields |
 | `torsion.py` | Analytical solid circular-shaft torsion and exports |
+| `square_torsion.py`, `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Square-shaft mechanics, synthetic stereo imaging, image-only reconstruction and surface strain |
 | `noise_comparison.py` | Paired errors at common valid measurement centres |
 | `speckle.py` | Seeded speckles, physical calibration, inverse image warp and camera degradation |
 | `dic.py` | Integer ZNCC search and six-parameter affine subpixel refinement |
@@ -159,8 +161,11 @@ plots and the study's base configuration are saved alongside it.
 
 **Limits you should state when presenting**
 
-This is a local, small-deformation, 2D plane-stress DIC laboratory, not a general
-FEM or stereo-DIC solver. It is complete for the stated benchmarks and studies,
+The flat-specimen workflow is a local, small-deformation, 2D plane-stress DIC
+laboratory, not a general FEM solver. A separate square-torsion workflow
+implements synthetic stereo DIC with exact simulated calibration and measures
+the visible front face; it is not a general experimental stereo-DIC system. The
+project is complete for its stated benchmarks and studies,
 but does not guarantee exact recovery. Finite pixels, interpolation, local
 shape functions, gradient fitting and noise all introduce measurable error.
 The hole-edge concentration factor is analytically 3; the measured interior
@@ -170,7 +175,7 @@ assumptions and interpretation are in `METHODS.md`.
 
 **Interactive controls and views**
 
-- Object: axial bar, end-loaded cantilever, plate with a hole, pure bending, or circular-shaft torsion.
+- Object: axial bar, end-loaded cantilever, plate with a hole, pure bending, circular-shaft torsion, or square-beam torsion with stereo DIC.
 - Material: illustrative aluminium, steel, copper and titanium properties, or custom E and nu. These are editable elastic-model inputs, not material certification.
 - Geometry: length, height/width, thickness and hole radius where applicable; all entered in mm.
 - Load: positive force for bar/plate/cantilever, signed end moment for pure bending, or signed torque for torsion. Zero-load runs are supported.
