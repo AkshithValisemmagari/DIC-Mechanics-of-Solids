@@ -32,13 +32,14 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  let showCoverage;const stereoInit=w.StereoLab.init;
  w.StereoLab.init=api=>{showCoverage=api.showCoverage;stereoInit(api);};
  w.eval(fs.readFileSync(root+'/web/presentation.js','utf8'));
+ w.eval(fs.readFileSync(root+'/web/results.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/app.js','utf8'));
  await until(()=>!$('controls').disabled);assert($('buildInfo').textContent.includes('Server build'));assert($('jumpToResults').hidden);
  change('material','steel','change');assert.equal($('E_gpa').value,'200');
  $('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('state').textContent==='Experiment complete');
  assert(!$('download').classList.contains('disabled'));assert($('metricError').textContent!=='—');
- assert($('runCaption').textContent.includes('Steel'));assertCoverage(await(await w.fetch('/api/result')).json());
+ assert($('runCaption').textContent.includes('Steel'));assertCoverage(await(await w.fetch('/api/result')).json());assert(!$('readableResults').hidden);assert($('resultsErrors').textContent.includes('Displacement vector'));
  w.document.querySelector('[data-tab="images"]').click();assert($('images').classList.contains('active'));assert($('subsetReverse').textContent.includes('Return error:'));assert($('qualityTolerance').textContent.includes('0.30 px'));assert(!$('jumpToResults').hidden);
  w.document.querySelector('[data-tab="fields"]').click();change('field','von_mises','change');assert($('fieldStats').textContent.includes('Von Mises'));
  const previous=$('metricError').textContent;change('force_n','20000');assert.equal($('state').textContent,'Inputs changed');assert.equal($('metricError').textContent,previous);
@@ -47,6 +48,7 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  change('force_n','0');$('experiment').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await until(()=>$('state').textContent==='Experiment complete');assert($('methodDetails').textContent.includes('At zero load'));
  assert($('runCaption').textContent.includes('Plate with a hole'));
+ assert($('resultsCounts').textContent.includes('Matching rejections'));assert.equal($('technicalDetails').open,false);
  const hole=await(await w.fetch('/api/result')).json();assertCoverage(hole);w.document.querySelector('[data-tab="fields"]').click();change('field','stress_xx','change');assert($('errorLegend').textContent.includes('Error: 0'));assert(!$('errorLegend').textContent.includes('e-12'));
  assert(hole.summary.eligible_reference_subsets<hole.summary.candidate_subsets);
  showCoverage({valid_displacement_subsets:0,eligible_reference_subsets:0,candidate_subsets:5});
@@ -76,6 +78,7 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  assert(w.document.querySelector('[data-tab="fields"]').hidden);assert(!w.document.querySelector('[data-tab="stereo"]').hidden);assert($('dicMethods').hidden);
  w.document.querySelector('[data-tab="stereo"]').click();assert($('stereoQuality').textContent.includes('Coverage:'));
  change('stereoField','gamma','change');assert($('stereoStats').textContent.includes('Surface shear'));assert($('stereoRow').options.length>=3);
+ assert($('resultsExplanation').textContent.includes('Bulk stress remains analytical'));assert(!$('resultsErrors').textContent.includes('Stress components'));
  const shaft=await(await w.fetch('/api/result')).json();assertCoverage(shaft);assert(shaft.stereo);assert(!shaft.baseline);assert(shaft.summary.valid_strain_subsets>0);assert(shaft.torsion.end_twist_rad<0);
  assert(shaft.fields.w.measured.some(v=>v!==null));
  for(const file of ['left_reference.png','right_deformed.png','stereo_fields.csv','camera_calibration.json','report.html','download.zip'])assert.equal((await w.fetch(shaft.asset_prefix+file)).status,200);

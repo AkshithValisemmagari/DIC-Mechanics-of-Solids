@@ -86,3 +86,14 @@ The UI/browser workflows check the compact coverage details, verification strip,
 subset return information, build label, mobile jump links and shorter stereo
 field canvases. Progress is reported by stage; the solver is not instrumented
 with estimated per-point completion.
+
+
+## Results-dashboard presentation checks
+
+`npm test` includes `results_dashboard.cjs`. Its cantilever fixture verifies
+display-only MPa/microstrain conversion, individual sample counts, rejection
+denominators, mode-specific metrics, missing values, copying and unchanged
+source JSON. The fixture is not a new mechanics benchmark. The UI/controller
+and real Chromium checks also exercise the dashboard, expandable component
+errors, collapsed technical JSON and actual clipboard copying. No solver or
+validation thresholds are changed.
