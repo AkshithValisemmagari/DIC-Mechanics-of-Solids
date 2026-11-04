@@ -117,8 +117,14 @@ The camera model applies:
 3. Independent zero-mean Gaussian noise to each image.
 4. Clipping to [0,1] and rounding to 8-bit pixel values.
 
-The saved PNG values are exactly the inputs used by DIC. Blur width is in
-pixels, noise standard deviation is on the 0–1 intensity scale. For example,
+With DIC denoising Off, matching uses the normalized 8-bit camera values.
+With Gaussian or Wiener denoising enabled, raw capture PNGs stay unchanged;
+matching uses filtered floating-point arrays saved exactly in
+`dic_input_images.npz`. The `*_smoothed.png` files are 16-bit display previews
+and are not reloaded for matching. Stereo exports use the same distinction
+for all four captures. Camera blur is applied before capture; DIC denoising
+is applied afterward. Blur width is in pixels, noise standard deviation is on
+the 0–1 intensity scale. For example,
 0.01 corresponds to 2.55 grey levels before clipping. Gaussian blur approximates
 optical smoothing, not directional motion blur. Saturation breaks ideal
 brightness invariance. Three-sigma blur footprints and interpolation support
@@ -168,7 +174,7 @@ pyramid or automatic global recovery. No analytical seed rescues it.
 | 2 | Reference subset lacks intensity variation |
 | 3 | Optimizer failed to converge |
 | 4 | Final ZNCC below the configured threshold |
-| 5 | Mapped subset crosses invalid image/material support |
+| 5 | No supported integer target window, or mapped subset crosses invalid support |
 | 6 | Optimizer reached a displacement/gradient bound |
 
 **4. Strain and stress recovery**
@@ -211,6 +217,10 @@ also reported. Strain/stress summaries use the same component-vector convention;
 their vector RMSE is a numerical combined-component score, not a tensor-invariant
 norm (engineering shear is not rescaled). Failure and coverage accompany errors.
 
+`eligible_match_coverage_fraction` is accepted displacement matches divided by
+eligible reference subsets; it is null if none are eligible. The interface
+shows this beside displacement RMSE and also reports acceptance across all
+candidates. Strain/stress validity is reported separately.
 `coverage_fraction` uses every candidate centre, including those masked by the
 hole. `eligible_match_failure_fraction` uses candidates whose reference subsets
 fit inside the material; flat subsets remain eligible failures. The n_valid

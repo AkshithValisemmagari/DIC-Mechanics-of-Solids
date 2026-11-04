@@ -23,17 +23,12 @@ def main():
                np.column_stack((result.x_m, result.displacement_m, result.strain, result.stress_pa)),
                delimiter=",", header="x_m,displacement_m,strain,stress_pa", comments="")
     (args.output_dir / "parameters.json").write_text(
-    json.dumps(parameters, indent=2) + "\n",
-    encoding='utf-8'
-)
+        json.dumps(parameters, indent=2) + "\n", encoding='utf-8')
     plot_axial_bar(result, args.output_dir / "analytical_fields.png")
     summary = (f"Stress: {result.stress_pa[0] / 1e6:.6g} MPa\n"
                f"Strain: {result.strain[0]:.6g}\n"
                f"End displacement: {result.displacement_m[-1] * 1e3:.6g} mm\n")
-    (args.output_dir / "parameters.json").write_text(
-    json.dumps(parameters, indent=2) + "\n",
-    encoding='utf-8'
-)
+    (args.output_dir / "summary.txt").write_text(summary, encoding='utf-8')
     print(summary, end="")
     print(f"Results saved to: {args.output_dir.resolve()}")
 

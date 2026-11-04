@@ -1,6 +1,10 @@
-**Verified project results**
+**Historical project results**
 
-These values come from the included executed configurations. They are measured results, not illustrative numbers.
+These values were reported for an earlier benchmark release. They have not
+been regenerated for the current code, and the referenced output folders/logs
+are not included in Git. Treat these tables as historical records, not current
+verification evidence. Run the configured benchmarks to obtain fresh numbers;
+see `REVIEW.md` for the latest dated test record.
 
 | Benchmark | Displacement vector RMSE (px) | Strain component-vector RMSE | Stress component-vector RMSE (MPa) | Valid displacement subsets |
 |---|---:|---:|---:|---:|
@@ -27,11 +31,15 @@ The interior grid does not reach the edge. These are different sampling location
 | 0.03 | 0.014969 | 0.001541 |
 | 0.06 | 0.035442 | 0.004519 |
 
-All five factors, all 48 trials, failure rates and strain/stress errors are available in outputs/robustness/. At zero noise, repeated seeds generate identical results. Other factors use background noise=0.01; error bars quantify noise-seed variability for the configured speckle realization.
+A fresh robustness run writes all five factors, all 48 trials, failure rates
+and strain/stress errors to outputs/robustness/. Those generated files are not
+part of a clean checkout. At zero noise, repeated seeds generate identical results. Other factors use background noise=0.01; error bars quantify noise-seed variability for the configured speckle realization.
 
 **Verification**
 
-The original benchmark run passed 14 tests; the interactive release extends this to 22 passing Python tests (see REVIEW.md and outputs/test_results.txt). They cover independent mechanics identities, known subpixel image shifts, brightness changes, masking/inverse mapping, independent camera noise, flat-image rejection, physical-to-pixel coordinate signs, and input checks.
+Historical releases reported 14 and then 22 passing Python tests. These counts
+do not describe the current suite, and their old output logs are not tracked.
+See REVIEW.md for the latest verification scope and reproduction commands. They cover independent mechanics identities, known subpixel image shifts, brightness changes, masking/inverse mapping, independent camera noise, flat-image rejection, physical-to-pixel coordinate signs, and input checks.
 
 **Interpretation**
 
