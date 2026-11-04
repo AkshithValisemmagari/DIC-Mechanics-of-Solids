@@ -52,14 +52,18 @@ class Benchmark:
         if self.bounds[1] <= self.bounds[0] or self.bounds[3] <= self.bounds[2]:
             raise ValueError('Domain must have positive width and height.')
         self.hole_radius = float(config.get('hole_radius_m', 0))
+        if not np.isfinite(self.hole_radius) or self.hole_radius < 0:
+            raise ValueError('hole_radius_m must be finite and nonnegative.')
         if self.name == 'plate_with_hole' and self.hole_radius <= 0:
             raise ValueError('Hole radius must be positive.')
         if self.name in ('cantilever', 'pure_bending'):
             self.L = float(config['length_m'])
             self.h = float(config['height_m'])
-            self.I = float(config['thickness_m']) * self.h**3 / 12
-            if min(self.L, self.h, self.I) <= 0:
-                raise ValueError('Beam dimensions must be positive.')
+            thickness = float(config['thickness_m'])
+            self.I = thickness * self.h**3 / 12
+            dimensions = np.array([self.L, self.h, thickness, self.I])
+            if not np.all(np.isfinite(dimensions)) or np.any(dimensions <= 0):
+                raise ValueError('Beam dimensions must be finite and positive.')
         load = config.get('remote_stress_pa', config.get('moment_nm', config.get('force_n')))
         if load is None or not np.isfinite(load):
             raise ValueError('A finite load is required.')

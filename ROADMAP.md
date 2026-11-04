@@ -23,5 +23,8 @@ these results as a physical experiment.
 
 All agreed phases have working code and generated results. No placeholder
 modules remain. The interactive GUI is implemented in `web/`, `lab_config.py` and
-`lab_server.py`. Real camera calibration, large-deformation mechanics,
-stereo DIC, an FEM solver and machine learning remain outside the agreed scope.
+`lab_server.py`. The original flat-specimen scope excludes real camera
+calibration, large-deformation mechanics, general FEM, and machine learning. A
+later square-torsion extension implements synthetic stereo DIC with exact
+simulated camera calibration and front-face surface strain; it is not
+experimental stereo DIC.
