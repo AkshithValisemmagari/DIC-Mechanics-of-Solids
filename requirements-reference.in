@@ -1,0 +1,6 @@
+# Reference Python 3.12 environment; retain the runtime compatibility bounds.
+-r requirements.txt
+numpy==2.3.5
+scipy==1.17.0
+matplotlib==3.10.8
+Pillow==12.3.0

@@ -67,7 +67,7 @@ def build_config(data):
        'domain_m':[0,L,-H/2,H/2], 'remote_stress_pa':P/(H*t),
        'image':{'shape':shape,'speckle_radius_px':number(data,'speckle_radius_px',1,5),'density':number(data,'density',.15,.65),'seed':seed},
        'camera':{'noise_std':noise,'blur_sigma':blur,'brightness_gain':gain,'brightness_offset':0,'seed':seed+1},
-       'dic':{'denoise_sigma':denoise,'subset_size':subset,'step':step,'search_radius':search,'min_zncc':.75,'max_nfev':60,'gradient_bound':.12},
+       'dic':{'denoise_sigma':denoise,'subset_size':subset,'step':step,'search_radius':search,'min_zncc':.75,'fb_tolerance_px':.3,'max_nfev':60,'gradient_bound':.12},
        'strain':{'fit_radius_px':radius},
        'user_inputs':{**DEFAULTS,**data,'E_gpa':E,'nu':nu},
        'load_description':{'force_n':P,'gross_area_m2':H*t,'material_name':MATERIALS[mat]['name']}}

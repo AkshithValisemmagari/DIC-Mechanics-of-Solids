@@ -105,7 +105,7 @@ class TargetSupportTests(unittest.TestCase):
     def test_interior_seeds_remain_identical(self):
         with patch('dic.integer_match', wraps=integer_match) as matcher:
             flat = self.flat(self.mask)
-        template, search, support = matcher.call_args.args
+        template, search, support = matcher.call_args_list[0].args
         self.assertTrue(support.all())
         self.assertEqual(integer_match(template, search, support), integer_match(template, search))
         # Without invalid support, both paths still select the exact first copy.

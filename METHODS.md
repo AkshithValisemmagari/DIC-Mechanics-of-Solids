@@ -176,6 +176,33 @@ pyramid or automatic global recovery. No analytical seed rescues it.
 | 4 | Final ZNCC below the configured threshold |
 | 5 | No supported integer target window, or mapped subset crosses invalid support |
 | 6 | Optimizer reached a displacement/gradient bound |
+| 7 | Reverse match failed source/target support, texture, correlation, optimizer or bound checks |
+| 8 | Reverse match returned more than the allowed distance from the original centre |
+
+**Forward/backward verification (flat specimens)**
+
+After a forward fit passes, an axis-aligned subset centred at its measured
+deformed location is independently matched into the reference image. Its
+integer search is centred at that deformed location, not at the original
+reference centre. No inverse forward parameters or analytical displacement are
+used as a seed. Subpixel normalized affine fitting, processed masks, texture,
+correlation, bounds and convergence checks also apply in the reverse direction.
+Reverse affine bounds allow inverse compression gradients to exceed the forward
+component bound in the intended small-gradient regime.
+
+A successful reverse fit must return within `fb_tolerance_px` (default 0.3 px,
+Euclidean image-coordinate distance) of the original reference centre. This is
+a consistency tolerance, not an accuracy guarantee. A reverse source subset
+may fail near a boundary even when the forward mapped footprint fits: rejection
+is deliberately conservative. Per-point errors/reasons are saved separately in
+`dic_consistency.csv`; the original displacement CSV keeps its 11-column schema.
+Summary status counts include reverse failures (7) and cycle failures (8).
+
+Set the batch setting to null to disable for comparisons. No filtering is
+applied a second time for reverse matching. Repetitive patterns can yield a
+wrong but cycle-consistent pair, or make a whole texture period unobservable.
+Peak-uniqueness rejection is not enabled without separate calibration.
+See `CONSISTENCY_VALIDATION.md` for the deterministic sweep and limitations.
 
 **4. Strain and stress recovery**
 

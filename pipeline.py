@@ -1,4 +1,5 @@
 """End-to-end experiment orchestration and reproducible outputs."""
+import csv
 import json
 from pathlib import Path
 from PIL import Image
@@ -27,7 +28,7 @@ def run_experiment(config, output_dir=None, make_plots=True):
     dic_settings=dict(config['dic']);sigma=dic_settings.pop('denoise_sigma',0)
     inputs,support,preprocessing=prepare_images({'reference':ref,'deformed':deformed},
                                               {'reference':mr,'deformed':md},sigma)
-    dic = run_dic(inputs['reference'],inputs['deformed'],support['reference'],support['deformed'],**dic_settings)
+    dic, consistency = run_dic(inputs['reference'],inputs['deformed'],support['reference'],support['deformed'],return_diagnostics=True,**dic_settings)
     xmin, xmax, ymin, ymax = model.bounds
     sx, sy = truth['sx'], truth['sy']
     x, y = xmin+dic[:, 0]*sx, ymax-dic[:, 1]*sy
@@ -45,6 +46,8 @@ def run_experiment(config, output_dir=None, make_plots=True):
     derived = invariants(stress)
     summary = summarize(dic, true_disp, strain, true_strain, stress, true_stress)
     summary['preprocessing'] = preprocessing
+    summary['forward_backward'] = dict(tolerance_px=consistency['tolerance_px'],
+        reverse_failures=int(np.sum(dic[:,10] == 7)), cycle_rejections=int(np.sum(dic[:,10] == 8)))
     summary['benchmark'] = model.name
     summary['pixel_size_m'] = [sx, sy]
     summary['max_ground_truth_displacement_px'] = float(np.nanmax(np.linalg.norm(true_disp, axis=1)))
@@ -60,7 +63,7 @@ def run_experiment(config, output_dir=None, make_plots=True):
             'dic_sampled_sigma_xx_ratio': float(np.max(stress[valid, 0]/S)) if valid.any() and S != 0 else None,
             'note': 'Subset centres do not reach the hole edge. Sampled ratios are not edge Kt estimates.'}
     bundle = dict(config=config, matching_images=inputs, reference=ref, deformed=deformed, mask_reference=mr,
-                  mask_deformed=md, dic=dic, x=x, y=y, true_disp=true_disp,
+                  mask_deformed=md, dic=dic, consistency=consistency, x=x, y=y, true_disp=true_disp,
                   strain=strain, stress=stress, true_strain=true_strain,
                   true_stress=true_stress, invariants=derived, summary=summary)
     if output_dir is not None:
@@ -81,6 +84,11 @@ def run_experiment(config, output_dir=None, make_plots=True):
         save_image(out/'reference_mask.png', mr); save_image(out/'deformed_mask.png', md)
         np.savez_compressed(out/'ground_truth.npz', **truth, reference_support_mask=mr)
         np.savetxt(out/'dic_displacements.csv', dic, delimiter=',', header=DIC_COLUMNS, comments='')
+        with (out/'dic_consistency.csv').open('w', newline='', encoding='utf-8') as stream:
+            writer = csv.writer(stream)
+            writer.writerow(['col_px', 'row_px', 'round_trip_error_px', 'reverse_zncc', 'reverse_status'])
+            for row, point in zip(dic, consistency['points']):
+                writer.writerow([*row[:2], point['round_trip_error_px'], point['reverse_zncc'], point['reverse_status']])
         measured_m = dic[:, 2:4]*[sx, -sy]
         measured_m[~dic[:, 9].astype(bool)] = np.nan
         true_m = true_disp*[sx, -sy]
