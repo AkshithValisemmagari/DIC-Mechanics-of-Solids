@@ -2,15 +2,19 @@
 
 ## Current verification — 2026-11-04
 
-This record applies to the export/coverage follow-up based on main commit
-`5e7b016` (after the mask-aware DIC search update). Tests were executed against
+This record applies to the flat-consistency/reference-environment follow-up based on main
+commit `c0b6f39` (after the export/coverage update). Tests were executed against
 the checkout containing these follow-up changes, not merely inspected.
 
-- The complete Python suite passed **59 tests**.
+- The complete Python suite passed **65 tests**.
 - JavaScript syntax checks and measurement-profile tests passed.
 - The simulated-DOM UI workflow passed real API runs, exports, flat/stereo
   switching, coverage counts/percentages and the zero-eligible-point display.
-- Two CLI regressions check the restored axial `summary.txt` export and UTF-8
+- Six new consistency tests cover affine motion/brightness, duplicate texture,
+  an unobservable whole-period shift, reverse support, forward-only comparisons,
+  threshold rejection and diagnostic exports. The 45-case calibration and four
+  specimen comparisons are reported in `CONSISTENCY_VALIDATION.md`.
+- Two retained CLI regressions check the restored axial `summary.txt` export and UTF-8
   batch index generation under an ASCII-default locale.
 - The existing six target-support regressions cover supported search
   alternatives, empty target support, post-refinement rejection and filter
@@ -19,8 +23,10 @@ the checkout containing these follow-up changes, not merely inspected.
 
 Execution environment: Linux, Python 3.12.14, NumPy 2.3.5, SciPy 1.17.0,
 Matplotlib 3.10.8 and Pillow 12.3.0. Optional JavaScript checks used Node.js
-24.22.1 and jsdom 30.1.2. These are recorded test versions, not a dependency
-lockfile or evidence of testing every supported environment.
+24.22.1 and jsdom 30.1.2. The full Python dependency lock was installed with hash checking for this run;
+`requirements-reference.in` records its direct version pins. Node development
+dependencies are locked in `package-lock.json`. These are not evidence of
+testing every supported environment.
 
 Reproduce from the project folder:
 
@@ -29,9 +35,9 @@ python -m unittest discover -s tests -v
 node tests/analysis_profiles.cjs
 ```
 
-For the optional UI workflow, install jsdom in the development environment,
+For the optional UI workflow, use Node 24 and `npm ci --ignore-scripts`,
 start a dedicated `python lab_server.py --no-browser` server on port 8765,
-then run `node tests/ui_controller.cjs`. See `tests/README.md` for isolation
+then run `npm run test:ui`. See `tests/README.md` for isolation
 and log-saving guidance. Full generated run folders/logs are not tracked.
 
 ## What the checks establish
@@ -43,6 +49,11 @@ triangulation, rigid-motion strain invariance and HTTP exports. DIC receives
 images, support masks and correlation settings; stereo also receives camera
 calibration. Ground truth is used for image generation and later validation,
 not supplied as a matching displacement or seed.
+
+Flat displacement acceptance now also requires a successful independent reverse
+match within 0.3 px by default. Per-point diagnostics are exported separately;
+failed estimates do not enter recovered fields. A cycle check does not prove
+uniqueness.
 
 Flat stress is inferred from measured strain using isotropic linear-elastic
 plane stress. The 3D preview and stress colours use analytical fields, not
@@ -68,7 +79,11 @@ Camera noise/blur and DIC denoising are separate selected operations.
 
 Canvas drawing is stubbed in the UI controller. Pixel appearance, fonts,
 responsive layout and live Safari/Chrome rendering were not verified in this
-follow-up. Public tunnel reachability, Render deployment and automatic Mac
+follow-up: the Chromium binary download failed with an invalid/truncated ZIP.
+The provided real-browser smoke script and CI workflow must still pass in an
+environment where Chromium installs successfully. CI definitions target Linux
+Python 3.12/3.13 and desktop/mobile Chromium; their presence alone is not a CI
+pass. Public tunnel reachability, Render deployment and automatic Mac
 service recovery were not exercised. Synthetic tests with exact stereo
 calibration do not establish real-camera accuracy.
 

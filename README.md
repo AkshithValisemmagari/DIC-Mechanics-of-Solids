@@ -96,7 +96,7 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 | `square_torsion.py`, `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Square-shaft mechanics, synthetic stereo imaging, image-only reconstruction and surface strain |
 | `noise_comparison.py` | Paired errors at common valid measurement centres |
 | `speckle.py` | Seeded speckles, physical calibration, inverse image warp and camera degradation |
-| `dic.py`, `dic_support.py` | Mask-aware integer ZNCC search and six-parameter affine subpixel refinement |
+| `dic.py`, `dic_support.py` | Mask-aware affine matching and independent forward/backward verification |
 | `strain.py` | Local quadratic fits to the measured displacement field |
 | `stress.py` | Plane-stress elasticity, in-plane principal stresses and von Mises stress |
 | `validation.py` | Displacement/strain/stress errors, match failures and coverage |
@@ -109,6 +109,27 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 | `METHODS.md` | Equations, coordinate conventions, limitations and references |
 | `ROADMAP.md` | Map of all seven implemented phases |
 | `RESULTS.md` | Historical numerical results and their interpretation limits |
+
+**Reproducible development environment (optional)**
+
+Normal lab use still needs only `requirements.txt`. For the Python 3.12 reference
+versions used in verification, install the full hash-checked dependency lock:
+
+```bash
+python -m pip install --require-hashes -r requirements-lock.txt
+```
+
+`requirements-reference.in` records the direct reference pins. The generated
+lock includes transitive dependencies and platform artifact hashes. To refresh
+it deliberately with uv, use the compile command in its header, then rerun tests.
+The reference lock targets Python 3.12+; it is separate from the broader normal
+runtime requirements. CI exercises Linux Python 3.12/3.13; other environments
+still need verification.
+
+Optional JavaScript tests use Node 24 and `npm ci` with the committed package
+lock. `npm test` runs profiles; `npm run test:ui` needs a dedicated local lab
+server. `npm run test:browser` additionally needs Playwright Chromium installed.
+No Node packages or browser automation are needed to run the lab normally.
 
 **Configuration files**
 
@@ -138,7 +159,8 @@ that any particular real material stays elastic at those stresses.
 | `reference_mask.png`, `deformed_mask.png` | Geometric/valid interpolation support masks |
 | `config.json` | Exact settings for the run |
 | `ground_truth.npz` | Dense physical coordinates, analytical displacement, pixel sizes and reference mask |
-| `dic_displacements.csv` | Candidate centres, measured motion, affine gradients, ZNCC and match status |
+| `dic_displacements.csv` | Candidate centres, forward motion, affine gradients, ZNCC and final match status |
+| `dic_consistency.csv` | Per-candidate reverse outcome, reverse ZNCC and round-trip error (flat DIC) |
 | `mechanical_fields.csv` | Recovered and analytical strains/stresses; principal and von Mises results |
 | `errors.csv` | Signed differences at matching reference positions |
 | `summary.json` | RMSE, maximum errors, valid counts, failure rate and hole concentration comparison |
@@ -154,6 +176,23 @@ candidates already require full raw reference support, and additional points
 may fail after filtering or matching. Status codes and masks explain omitted measurements. `dic_displacements.csv`
 retains rejected optimizer estimates for diagnostics; use `valid == 1` when
 analyzing them. No zero-displacement percentage errors are used.
+
+**Flat-DIC consistency checks**
+
+Forward matches now undergo an independent reverse match from the measured
+location in the deformed image back into the reference image. The default
+maximum return error is **0.3 px**, using the same filtered images and mask
+margins. Status 7 means the reverse match failed; status 8 means it returned to
+a different reference location. All earlier checks still apply. Failed forward
+estimates remain in the diagnostic CSV but are excluded from recovered fields.
+
+`summary.json` records the effective threshold and rejection counts;
+`dic_consistency.csv` records every reverse outcome. A batch configuration can
+set `dic.fb_tolerance_px` to `null` for a controlled forward-only comparison.
+The current website enables 0.3 px. Reverse checking adds a second fit for
+forward-accepted points and can increase runtime or reduce coverage. It cannot
+guarantee uniqueness for repeated texture. See `CONSISTENCY_VALIDATION.md` for
+measured checks and their limits. Stereo retains its existing cycle checks.
 
 **Robustness study**
 

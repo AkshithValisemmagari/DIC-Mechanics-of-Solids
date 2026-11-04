@@ -13,8 +13,9 @@ bending, analytical circular torsion, session access and exports. Separate image
 tests exercise square stereo torsion. CLI tests check the axial summary files
 and UTF-8 batch-index export under an ASCII-default locale.
 
-The optional UI controller requires Node.js and `jsdom` in your development
-environment (test-only dependencies). Start a dedicated local server on 8765:
+The optional JavaScript checks use Node 24 and the committed development lock.
+Run `npm ci --ignore-scripts` to install jsdom and Playwright; these are test-only
+dependencies. Start a dedicated local server on 8765:
 
 ```bash
 python lab_server.py --no-browser
@@ -23,7 +24,7 @@ python lab_server.py --no-browser
 Then, in a second terminal in the same project/environment:
 
 ```bash
-node tests/ui_controller.cjs
+npm run test:ui
 ```
 
 Do not share this dedicated test server with a public classroom session. You
@@ -40,3 +41,36 @@ python -m unittest discover -s tests -v > test-results.log 2>&1
 
 Generated outputs/logs are not distributed as verification evidence in a clean
 checkout. Tests on synthetic images do not establish real-camera accuracy.
+
+
+## Independent consistency validation
+
+`test_dic_consistency.py` covers known affine deformation/brightness, repeated
+texture, reverse source support, forward-only comparisons, invalid thresholds,
+and diagnostic exports. The periodic-texture test deliberately demonstrates a
+case where a wrong physical correspondence can remain cycle-consistent.
+
+For the deterministic 45-case tolerance sweep:
+
+```bash
+python tests/calibrate_dic_consistency.py > consistency-calibration.json
+```
+
+## Real Chromium and CI
+
+With the dedicated lab server running:
+
+```bash
+npx playwright install chromium
+npm run test:browser
+```
+
+The smoke script uses actual desktop/mobile Chromium canvases and API runs,
+checks coverage, fields, stereo, browser errors and horizontal overflow, and
+saves screenshots under `outputs/browser-check/`. It does not establish Safari
+or real-camera correctness. Browser binaries must be installed successfully.
+
+`.github/workflows/verify.yml` defines Python 3.12/3.13 tests plus locked Node
+profile/controller/Chromium checks. It uses read-only repository permissions;
+the browser job uploads screenshots/logs as a review artifact. A committed
+workflow is not evidence of a successful CI run: inspect the PR's checks.
