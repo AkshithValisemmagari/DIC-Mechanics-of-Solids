@@ -59,11 +59,11 @@ Analytical: full-solid stress colours, cross-section stress map and twist curve.
 
 One observed surface does not uniquely determine the interior stress tensor. This update does not label analytical stress as DIC-recovered stress. Camera calibration is exact in the simulation; lens distortion, experimental calibration uncertainty, lighting changes from surface orientation, and real occlusion of multiple faces are outside this initial benchmark.
 
-## Validation
+## Validation (historical release record)
 
-The complete Python suite passed 46 tests, including existing mechanics, flat DIC, hosting/session isolation and exports. The nine new tests cover square torsion equilibrium/warping, pinhole projection/triangulation, strain invariance to rigid motion, input rejection, zero load, rigid translation/rotation images, both torque signs, added noise, failed matches, and exports. The middle-reference test additionally verifies equal and opposite end rotation and invariance of total twist, stress and surface strain. The image-based tests use the same middle reference as the animation and validation.
+The earlier extension release recorded 46 passing Python tests, including existing mechanics, flat DIC, hosting/session isolation and exports. The nine new tests cover square torsion equilibrium/warping, pinhole projection/triangulation, strain invariance to rigid motion, input rejection, zero load, rigid translation/rotation images, both torque signs, added noise, failed matches, and exports. The middle-reference test additionally verifies equal and opposite end rotation and invariance of total twist, stress and surface strain. The image-based tests use the same middle reference as the animation and validation.
 
-The interface workflow passed object selection, submission, stereo field switching, downloads, and switching back to the existing DIC experiments. That test uses a simulated DOM, not a real browser. Actual canvas drawing was separately rendered and visually inspected using a native canvas implementation.
+See `REVIEW.md` for the current dated verification record. The earlier interface workflow passed object selection, submission, stereo field switching, downloads, and switching back to the existing DIC experiments. That test uses a simulated DOM, not a real browser. Actual canvas drawing was separately rendered and visually inspected using a native canvas implementation.
 
 A representative 800-pixel-wide run (aluminium, 160 mm length, 20 mm side, +100 N·m, subset 25, spacing 16 px, strain radius 36 px, seed 2039, no added noise/blur) recovered 114/114 displacement points and 110 strain estimates. Vector displacement RMSE was approximately 0.00344 mm. Component RMSE was approximately 0.00034, 0.00333 and 0.00080 mm; surface shear RMSE was about 207 microstrain. These are one simulated trial's results, not a guarantee for other settings or real cameras. Small normal-strain components can be dominated by measurement error.
 

@@ -46,7 +46,7 @@ def main():
     for title,folder in [('Axial bar','axial_bar_dic'),('Cantilever','cantilever'),('Plate with hole','plate_with_hole'),('Robustness study','robustness')]:
         if (args.output_dir/folder/'report.html').exists():
             links.append(f'<li><a href="{folder}/report.html">{title}</a></li>')
-    (args.output_dir/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>Virtual Solid Mechanics Lab</title><body style="font:18px system-ui;max-width:850px;margin:60px auto;padding:24px"><h1>Virtual Solid Mechanics Lab</h1><p>Analytical ground truth · Synthetic imaging · Subpixel DIC · Strain and stress · Robustness</p><ul>'+''.join(links)+'</ul><p>Open a report to inspect saved results. These links show the most recent saved run in each folder; each report includes its configuration.</p></body>')
+    (args.output_dir/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>Virtual Solid Mechanics Lab</title><body style="font:18px system-ui;max-width:850px;margin:60px auto;padding:24px"><h1>Virtual Solid Mechanics Lab</h1><p>Analytical ground truth · Synthetic imaging · Subpixel DIC · Strain and stress · Robustness</p><ul>'+''.join(links)+'</ul><p>Open a report to inspect saved results. These links show the most recent saved run in each folder; each report includes its configuration.</p></body>', encoding='utf-8')
     print(f'Finished in {time.perf_counter()-started:.1f} s. Open {args.output_dir.resolve() / "index.html"}',flush=True)
 
 

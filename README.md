@@ -1,4 +1,4 @@
-**Fieldlab — interactive Virtual Solid Mechanics Lab**
+**DIC Studio — interactive Virtual Solid Mechanics Lab**
 
 A reproducible Python project that creates analytical deformation fields,
 turns them into synthetic speckle-image experiments, independently measures
@@ -7,9 +7,11 @@ stress, and quantifies errors and imaging robustness.
 
 All seven calculation phases are implemented, with a local interactive interface.
 Choose one object, material, geometry and load, then run that experiment.
-The interactive lab includes pure bending, analytical circular-shaft torsion,
-and square-section torsion with synthetic stereo DIC, as well as measurement-line
-comparisons and paired noise experiments.
+The five interactive specimens are axial bar, cantilever, plate with a hole,
+pure bending, and square-section torsion with synthetic stereo DIC.
+Measurement-line comparisons and paired noise experiments are available for
+flat specimens. Analytical circular-shaft torsion remains a backend module for
+compatibility; it is not a selectable specimen in the current interface.
 The archive also includes batch benchmark and robustness reports.
 
 **Start here**
@@ -18,7 +20,7 @@ The archive also includes batch benchmark and robustness reports.
 2. Install the dependencies using the commands below (once).
 3. Run `python main.py`. Your browser opens the local virtual lab.
 4. Select the object, material, dimensions and force, bending moment or torque. Click **Run experiment**.
-5. Explore **Deformation**, **Images & DIC**, **Field comparison**, **Noise comparison**, and **Method & results**. Circular torsion is analytical-only and uses **Shaft analysis**; square torsion also has a **Stereo DIC** view.
+5. Explore **Deformation**, **Images & DIC**, **Field comparison**, **Noise comparison**, and **Method & results**. Square torsion has a dedicated **Stereo DIC** view instead of the flat-specimen DIC tabs.
 
 Keep the terminal running while using the lab. Press Ctrl+C to stop it.
 If the browser does not open automatically, use the localhost address printed
@@ -73,8 +75,8 @@ python run_axial_1d.py
 python -m unittest discover -s tests -v
 ```
 
-Runtime depends on the machine and settings; the recorded runtime is in
-`outputs/full_run.log`. Existing results in the selected output folders are
+Runtime depends on the machine and settings. Redirect console output to a log
+if you want to retain timings; generated outputs and logs are not tracked by Git. Existing results in the selected output folders are
 replaced. Use `--output-dir` to retain another experiment. The report index links
 to existing results, which may be from different runs; each folder saves its own
 configuration. Images are saved to disk; no interactive plotting window opens.
@@ -94,7 +96,7 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 | `square_torsion.py`, `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Square-shaft mechanics, synthetic stereo imaging, image-only reconstruction and surface strain |
 | `noise_comparison.py` | Paired errors at common valid measurement centres |
 | `speckle.py` | Seeded speckles, physical calibration, inverse image warp and camera degradation |
-| `dic.py` | Integer ZNCC search and six-parameter affine subpixel refinement |
+| `dic.py`, `dic_support.py` | Mask-aware integer ZNCC search and six-parameter affine subpixel refinement |
 | `strain.py` | Local quadratic fits to the measured displacement field |
 | `stress.py` | Plane-stress elasticity, in-plane principal stresses and von Mises stress |
 | `validation.py` | Displacement/strain/stress errors, match failures and coverage |
@@ -106,7 +108,7 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 | `run_axial_1d.py` | Preserved simple Phase 1 example for learning the first component |
 | `METHODS.md` | Equations, coordinate conventions, limitations and references |
 | `ROADMAP.md` | Map of all seven implemented phases |
-| `RESULTS.md` | Actual validation results from the included run |
+| `RESULTS.md` | Historical numerical results and their interpretation limits |
 
 **Configuration files**
 
@@ -130,7 +132,9 @@ that any particular real material stays elastic at those stresses.
 | File | Contents |
 |---|---|
 | `report.html` | Visual report with measured statistics |
-| `reference.png`, `deformed.png` | The actual 8-bit images given to DIC |
+| `reference.png`, `deformed.png` | Original 8-bit camera captures, preserved when denoising is enabled |
+| `reference_smoothed.png`, `deformed_smoothed.png` | 16-bit display previews when DIC denoising is enabled |
+| `dic_input_images.npz` | Exact floating-point filtered DIC inputs, saved when denoising is enabled |
 | `reference_mask.png`, `deformed_mask.png` | Geometric/valid interpolation support masks |
 | `config.json` | Exact settings for the run |
 | `ground_truth.npz` | Dense physical coordinates, analytical displacement, pixel sizes and reference mask |
@@ -142,7 +146,12 @@ that any particular real material stays elastic at those stresses.
 | `field_comparison.png` | Analytical, recovered and error maps |
 
 Invalid strain/stress entries are NaN in CSV files. Only valid measurements enter
-RMSE. Status codes and masks explain omitted measurements. `dic_displacements.csv`
+RMSE. The top coverage card shows accepted / eligible reference subsets and
+percentages relative to eligible subsets and all grid candidates. Eligible
+reference subsets fit fully inside the processed reference mask. These counts
+describe displacement; strain/stress fitting may retain fewer points. Stereo
+candidates already require full raw reference support, and additional points
+may fail after filtering or matching. Status codes and masks explain omitted measurements. `dic_displacements.csv`
 retains rejected optimizer estimates for diagnostics; use `valid == 1` when
 analyzing them. No zero-displacement percentage errors are used.
 
@@ -175,7 +184,7 @@ assumptions and interpretation are in `METHODS.md`.
 
 **Interactive controls and views**
 
-- Object: axial bar, end-loaded cantilever, plate with a hole, pure bending, circular-shaft torsion, or square-beam torsion with stereo DIC.
+- Object: axial bar, end-loaded cantilever, plate with a hole, pure bending, or square-beam torsion with stereo DIC.
 - Material: illustrative aluminium, steel, copper and titanium properties, or custom E and nu. These are editable elastic-model inputs, not material certification.
 - Geometry: length, height/width, thickness and hole radius where applicable; all entered in mm.
 - Load: positive force for bar/plate/cantilever, signed end moment for pure bending, or signed torque for torsion. Zero-load runs are supported.
@@ -208,7 +217,9 @@ See `REVIEW.md` for the methods review and verification scope.
 
 In Deformation, choose a 3D surface colour: von Mises stress (default), axial or transverse stress magnitude, shear stress magnitude, or Plain specimen. Blue indicates low stress and red high stress; the colour bar is in MPa and remains fixed at the full-load range during playback. The current sampled peak scales with the load fraction. Colours use analytical stress evaluated at display vertices, including the hole boundary, and are constant through thickness under the existing plane-stress model. Surface cells show average vertex magnitudes. Magnification changes geometry only. Red does not indicate failure. Signed stress and DIC comparisons remain in Field comparison.
 
-For this update, stop the server, replace `lab_server.py` and the entire `web` folder from the new download, restart `python main.py`, hard-refresh the browser, and run an experiment again. Previously saved results do not contain the new surface data.
+After an update, pull the complete repository, restart your configured lab server,
+and hard-refresh the browser. See `HOSTING.md`. Historical partial-update ZIP
+instructions are not the current installation procedure.
 
 
 **New experiment views**
@@ -228,13 +239,16 @@ For this update, stop the server, replace `lab_server.py` and the entire `web` f
   shear force. Negative moment reverses bending. Use **Signed axial stress σxx**
   for red tension, blue compression and a nearly white neutral axis. DIC, noise
   comparisons and line profiles work for this case.
-- **Torsion:** select material, shaft length/radius and torque in N·m. The 3D shaft
-  twists; marker lines show rotation. Shaft analysis plots twist along the axis,
-  shear stress versus radius and the cross-section stress colours. Reports include
-  end angle, maximum shear, von Mises stress and CSV curves. This is an analytical
-  solid circular-shaft experiment with **no DIC or noise simulation**.
+- **Square torsion:** select material, square side, shaft length and torque in N·m.
+  Both ends rotate about a middle-section reference. Stereo DIC measures 3D
+  displacement and surface strain from four synthetic camera images. Interior
+  stress and the 3D preview remain analytical. See `SQUARE_TORSION_STEREO.md`.
+- **Legacy circular torsion:** `torsion.py` remains available through the backend
+  API for compatibility, with analytical curves and no image-based measurement.
+  The current specimen selector does not expose this mode.
 
 The visual magnification slider exaggerates deformation (rotation for torsion);
 reported numbers and stress colours use the actual load. The batch runner keeps
-its three original presets; the new cases are selected in the interactive lab.
-See `METHODS.md` for equations and `EXPERIMENT_UPGRADE.md` for applying this update.
+its three original presets; pure bending and square torsion are selected in the interactive lab.
+See `METHODS.md` for equations, `REVIEW.md` for the verification record and
+`HOSTING.md` for updates/deployment. `EXPERIMENT_UPGRADE.md` is historical.

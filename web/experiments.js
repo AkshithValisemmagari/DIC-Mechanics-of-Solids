@@ -21,13 +21,14 @@ window.LabExperiments=(()=>{
     document.querySelector('[data-tab="torsion"]').hidden=!data.analysis_only;
     if(document.querySelector('[data-tab].active')?.hidden)document.querySelector('[data-tab="model"]').click();
     $('dicMethods').hidden=shaft;
+    $('coverageDetails').hidden=!!data.analysis_only;
     $('methodIntro').textContent=shaft?'This experiment evaluates analytical shaft mechanics; no DIC is performed.':'The images are the only motion information passed to DIC.';
     $('modelCaption').textContent=shaft?'Cross-sections rotate by θ(x) = Tx/(GJ). The marker lines make twist visible. Magnification exaggerates angle only; stress colours and reported values use the actual load.':'3D display of the 2D plane-stress solution, extruded through the entered thickness. Playback and magnification change only the view; DIC results stay unchanged.';
     const option=$('stressView').querySelector('[value="tau"]');option.textContent=shaft?'Shaft shear magnitude |τxθ|':'Shear stress magnitude |τxy|';
     for(const o of $('stressView').options)o.hidden=o.disabled=shaft&&!['von_mises','tau','plain'].includes(o.value);
     if($('stressView').selectedOptions[0]?.disabled)$('stressView').value='von_mises';
-    const labels=shaft?['END TWIST','MAX SHEAR STRESS','MAX VON MISES','EXPERIMENT TIME']:['DISPLACEMENT RMSE','VALID DIC SUBSETS','MAX TRUE MOTION','EXPERIMENT TIME'];
-    const hints=shaft?['Analytical · degrees','Analytical · MPa','Analytical · MPa','Analytical model and report']:['Measured vs analytical · pixels','Accepted / candidate centres','On candidate centres · pixels','Images → fields → validation'];
+    const labels=shaft?['END TWIST','MAX SHEAR STRESS','MAX VON MISES','EXPERIMENT TIME']:['DISPLACEMENT RMSE','VALID / ELIGIBLE','MAX TRUE MOTION','EXPERIMENT TIME'];
+    const hints=shaft?['Analytical · degrees','Analytical · MPa','Analytical · MPa','Analytical model and report']:['Measured vs analytical · pixels','Accepted / eligible reference centres','On candidate centres · pixels','Images → fields → validation'];
     document.querySelectorAll('.metrics>div').forEach((el,i)=>{el.querySelector('label').textContent=labels[i];el.querySelector('small').textContent=hints[i];});
     if(lastRun!==data.run_id){lastRun=data.run_id;$('profileLine').dataset.initial='1';}
     if(!shaft&&data.baseline){for(const o of $('noiseImage').options){if(o.value.includes('_smoothed'))o.disabled=!data.summary.preprocessing?.kernel_radius_px;}if($('noiseImage').selectedOptions[0]?.disabled)$('noiseImage').value='deformed.png';$('noiseLevel').textContent=`σ = ${data.config.camera.noise_std.toFixed(3)}`;noiseImages();}

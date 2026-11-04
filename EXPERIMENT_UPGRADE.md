@@ -1,3 +1,10 @@
+# Historical upgrade notes
+
+This document records an earlier partial-ZIP release, including its old circular
+torsion selector and zrok/LaunchAgent instructions. It is retained as history,
+not current setup guidance. Use `README.md` and `HOSTING.md` for the current
+project, and `REVIEW.md` for the latest verification record.
+
 # Experiment upgrade
 
 This update adds measurement-line ground-truth comparisons, paired noise tests,

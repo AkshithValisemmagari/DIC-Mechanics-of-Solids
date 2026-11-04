@@ -8,10 +8,10 @@ window.StereoLab=(()=>{
     $('play').textContent='▶ Play';$('empty').hidden=true;$('state').className='state';$('state').textContent='Experiment complete';
     $('sceneTitle').textContent='Square beam · free warping';
     $('runCaption').textContent=`Square torsion · ${c.load_description.material_name} · ${fmt(c.torque_nm)} N·m · ${fmt(c.length_m*1000)} mm × ${fmt(c.side_m*1000)} mm square`;
-    const labels=['3D DISPLACEMENT RMSE','VALID STEREO POINTS','MAX TRUE MOTION','EXPERIMENT TIME'];
+    const labels=['3D DISPLACEMENT RMSE','VALID / REFERENCE','MAX TRUE MOTION','EXPERIMENT TIME'];
     const hints=['Vector error · mm','Accepted / candidate centres','On candidate centres · mm','Four images → 3D → validation'];
     document.querySelectorAll('.metrics>div').forEach((el,i)=>{el.querySelector('label').textContent=labels[i];el.querySelector('small').textContent=hints[i];});
-    $('metricError').textContent=fmt(s.displacement_vector_rmse_mm,5);$('metricValid').textContent=`${s.valid_displacement_subsets} / ${s.candidate_subsets}`;
+    $('metricError').textContent=fmt(s.displacement_vector_rmse_mm,5);api.showCoverage(s,true);
     $('metricMotion').textContent=fmt(s.max_true_displacement_mm,4);$('metricTime').textContent=fmt(d.elapsed_s,1)+' s';
     for(const id of ['play','phase','mag'])$(id).disabled=false;$('phase').value=1;$('phaseOut').textContent='100%';
     $('modelCaption').textContent='Square-section torsion with axial warping. Visual magnification exaggerates twist and warping only; camera images and measurements use the actual load. The middle section has zero rotation; both ends rotate equally in opposite directions. Axial warping is free.';
