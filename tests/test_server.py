@@ -35,6 +35,12 @@ class ServerWorkflowTests(unittest.TestCase):
         self.assertEqual(error.exception.code,403)
         with self.assertRaises(urllib.error.HTTPError) as error:self.post({'length_mm':0},settings['token'])
         self.assertEqual(error.exception.code,400)
+    def test_stereo_preview_loader_asset(self):
+        self.assertIn(b'<script src="stereo-previews.js"></script>',self.get('/'))
+        with self.client.open(self.base+'/stereo-previews.js',timeout=10) as response:
+            self.assertEqual(response.status,200)
+            self.assertIn('javascript',response.headers['Content-Type'])
+            self.assertEqual(response.read(),(lab_server.WEB/'stereo-previews.js').read_bytes())
     def test_selected_objects_and_export(self):
         settings=json.loads(self.get('/api/settings'))
         requests=[dict(benchmark='axial_bar',material='steel',force_n=50000),dict(benchmark='cantilever',material='custom',E_gpa=90,nu=.28,height_mm=30,thickness_mm=6,force_n=1000,noise_std=.01),dict(benchmark='plate_with_hole',length_mm=80,height_mm=80,force_n=30000)]
