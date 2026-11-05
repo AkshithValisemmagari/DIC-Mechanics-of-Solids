@@ -74,6 +74,7 @@ const output=process.env.LAB_BROWSER_OUTPUT||'outputs/browser-check';
     return route.continue();
    });
    await page.locator('[data-object="square_torsion"]').click();
+   await page.locator('details').filter({has:page.locator('#denoise_sigma')}).evaluate(el=>{el.open=true;});
    await page.locator('#denoise_sigma').selectOption('0.7');
    await page.locator('#noise_std').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});await run();
    await page.locator('[data-tab="stereo"]').click();
