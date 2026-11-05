@@ -7,7 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "test": "node tests/analysis_profiles.cjs && node tests/presentation.cjs && node tests/results_dashboard.cjs",
+    "test": "node tests/analysis_profiles.cjs && node tests/presentation.cjs && node tests/results_dashboard.cjs && node tests/stereo_previews.cjs",
     "test:ui": "node tests/ui_controller.cjs",
     "test:browser": "node tests/browser_smoke.cjs"
   },

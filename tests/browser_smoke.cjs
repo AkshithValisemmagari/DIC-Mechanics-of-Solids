@@ -62,10 +62,51 @@ const output=process.env.LAB_BROWSER_OUTPUT||'outputs/browser-check';
    assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),raw);
    await page.locator('#technicalDetails summary').click();
    await page.screenshot({path:path.join(output,name+'-results.png'),fullPage:true});
+   // Reproduce the public-site failure: one After preview recovers automatically,
+   // the other exhausts 502 retries and must expose a persistent Retry button.
+   const previewRequests=new Map();let failRight=true;
+   await page.route('**/runs/**/*.png*',async route=>{
+    const file=new URL(route.request().url()).pathname.split('/').pop();
+    if(!/^(left|right)_(reference|deformed)(_smoothed)?\.png$/.test(file))return route.continue();
+    const count=(previewRequests.get(file)||0)+1;previewRequests.set(file,count);
+    if((file==='left_deformed_smoothed.png'&&count===1)||(file==='right_deformed_smoothed.png'&&failRight))
+     return route.fulfill({status:502,contentType:'text/plain',body:'Bad Gateway (delivery regression test)'});
+    return route.continue();
+   });
    await page.locator('[data-object="square_torsion"]').click();
+   await page.locator('details').filter({has:page.locator('#denoise_sigma')}).evaluate(el=>{el.open=true;});
+   await page.locator('#denoise_sigma').selectOption('0.7');
    await page.locator('#noise_std').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});await run();
    await page.locator('[data-tab="stereo"]').click();
    await page.locator('#stereoQuality').waitFor();
+   const cameraKeys=['left_reference','right_reference','left_deformed','right_deformed'];
+   const beforePreview=await(await context.request.get(base+'/api/result')).json();
+   await page.locator('#stereoRetry_right_deformed').waitFor({state:'visible'});
+   for(const key of cameraKeys.slice(0,3))await page.locator('#stereoStatus_'+key).waitFor({state:'hidden'});
+   assert.equal(previewRequests.get('left_deformed_smoothed.png'),2);
+   assert.equal(previewRequests.get('right_deformed_smoothed.png'),3);
+   assert([...previewRequests.keys()].every(file=>file.includes('_smoothed')),'Unused original previews must not be requested');
+   await page.locator('#stereoField').selectOption('u');
+   assert(await page.locator('#stereoRetry_right_deformed').isVisible(),'Field redraw must preserve image failure');
+   await page.screenshot({path:path.join(output,name+'-preview-error.png'),fullPage:true});
+   failRight=false;await page.locator('#stereoRetry_right_deformed').click();
+   async function assertFourCameraImages(){
+    for(const key of cameraKeys){
+     await page.locator('#stereoStatus_'+key).waitFor({state:'hidden'});
+     assert(await page.locator('#stereo_'+key).evaluate(canvas=>{
+      const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+      let lo=255,hi=0;for(let i=0;i<pixels.length;i+=4){lo=Math.min(lo,pixels[i]);hi=Math.max(hi,pixels[i]);}
+      return hi-lo>20;
+     }),'Camera image must actually be drawn: '+key);
+    }
+   }
+   await assertFourCameraImages();
+   await page.locator('#stereoImageMode').selectOption('original');await assertFourCameraImages();
+   const requestCount=[...previewRequests.values()].reduce((a,b)=>a+b,0);
+   await page.locator('#stereoImageMode').selectOption('smoothed');await assertFourCameraImages();
+   assert.equal([...previewRequests.values()].reduce((a,b)=>a+b,0),requestCount,'Reuse loaded previews when switching modes');
+   const afterPreview=await(await context.request.get(base+'/api/result')).json();
+   assert.deepEqual(afterPreview.summary,beforePreview.summary,'Preview delivery must not change numerical results');
    await page.locator('[data-tab="methods"]').click();
    assert((await page.locator('#resultsExplanation').innerText()).includes('Bulk stress remains analytical'));
    assert(!(await page.locator('#resultsErrors').innerText()).includes('Stress components'));
@@ -76,7 +117,7 @@ const output=process.env.LAB_BROWSER_OUTPUT||'outputs/browser-check';
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Horizontal overflow: '+name);
    assert.deepEqual(errors,[],'Browser JavaScript errors: '+name);
    await context.close();
-   console.log('PASS: real Chromium '+name+' runs, coverage, field canvas, stereo and layout smoke checks.');
+   console.log('PASS: real Chromium '+name+' runs, coverage, field canvas, all four stereo previews, 502 retries, manual recovery, mode switching and layout smoke checks.');
   }
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

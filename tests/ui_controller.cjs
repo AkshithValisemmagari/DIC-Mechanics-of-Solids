@@ -8,7 +8,7 @@ let cookie='';
 w.fetch=async(url,opts={})=>{const response=await fetch(new URL(url,'http://127.0.0.1:8765'),{...opts,headers:{...opts.headers,...(cookie?{Cookie:cookie}:{})}});const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];return response;};
 w.HTMLCanvasElement.prototype.getContext=function(){return new Proxy({},{get:(target,key)=>target[key]||(()=>{}),set:(target,key,value)=>(target[key]=value,true)});};
 w.HTMLCanvasElement.prototype.getBoundingClientRect=()=>({width:500,height:300,left:0,top:0});
-w.Image=class {set src(url){w.fetch(url).then(r=>r.arrayBuffer()).then(b=>{const a=Buffer.from(b);this.width=a.readUInt32BE(16);this.height=a.readUInt32BE(20);if(this.onload)this.onload();}).catch(e=>this.onerror?.(e));}};
+w.Image=class {set src(url){w.fetch(url).then(r=>r.arrayBuffer()).then(b=>{const a=Buffer.from(b);this.width=this.naturalWidth=a.readUInt32BE(16);this.height=this.naturalHeight=a.readUInt32BE(20);if(this.onload)this.onload();}).catch(e=>this.onerror?.(e));}};
 
 const $=id=>w.document.getElementById(id);
 async function until(fn){const end=Date.now()+60000;while(!fn()){if(Date.now()>end)throw Error('Timeout: '+$('message').textContent);await new Promise(r=>setTimeout(r,100));}}
@@ -28,6 +28,7 @@ function change(id,value,event='input'){$(id).value=value;$(id).dispatchEvent(ne
  w.eval(fs.readFileSync(root+'/web/model3d.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/analysis.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/experiments.js','utf8'));
+ w.eval(fs.readFileSync(root+'/web/stereo-previews.js','utf8'));
  w.eval(fs.readFileSync(root+'/web/stereo.js','utf8'));
  let showCoverage;const stereoInit=w.StereoLab.init;
  w.StereoLab.init=api=>{showCoverage=api.showCoverage;stereoInit(api);};

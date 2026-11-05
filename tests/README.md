@@ -97,3 +97,17 @@ source JSON. The fixture is not a new mechanics benchmark. The UI/controller
 and real Chromium checks also exercise the dashboard, expandable component
 errors, collapsed technical JSON and actual clipboard copying. No solver or
 validation thresholds are changed.
+
+## Stereo-preview delivery checks
+
+`npm test` includes `stereo_previews.cjs`, which uses controlled image events
+and a virtual clock to check the two-request limit, lazy mode selection,
+successful-image reuse, bounded retries, timeout recovery, manual retry,
+mode changes, decode failures and stale callbacks from a previous run.
+
+The Chromium script deliberately returns HTTP 502 for both smoothed After
+previews. It verifies automatic recovery for one, a persistent per-panel error
+and manual recovery for the other, and actual image pixels in all four panels
+in both preview modes. It also checks that summary values remain unchanged.
+Screenshots include the failure state and the recovered desktop/mobile views.
+These tests simulate gateway failures; they do not diagnose the public tunnel.

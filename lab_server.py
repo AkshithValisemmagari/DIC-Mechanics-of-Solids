@@ -37,7 +37,7 @@ MAX_SAVED_RUNS=5
 MAX_PENDING_JOBS=4
 PENDING_JOBS=0
 
-APP_VERSION='2026.11.04-results-dashboard'
+APP_VERSION='2026.11.05-stereo-previews'
 
 
 def build_info():
@@ -251,7 +251,7 @@ class Handler(SimpleHTTPRequestHandler):
             allowed.update({'dic_input_images.npz','stereo_fields.csv','stereo_correspondences.csv','camera_calibration.json'})
             if filename not in allowed or not (folder/filename).is_file(): return self.send_error(404)
             f=folder/filename;raw=f.read_bytes();self.send_response(200);self.send_header('Content-Type',self.guess_type(str(f)));self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
-        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js','/stereo.js','/presentation.js','/results.js'): return self.send_error(404)
+        if path not in ('/','/index.html','/style.css','/app.js','/model3d.js','/analysis.js','/experiments.js','/stereo.js','/stereo-previews.js','/presentation.js','/results.js'): return self.send_error(404)
         return super().do_GET()
     def do_POST(self):
         global PENDING_JOBS

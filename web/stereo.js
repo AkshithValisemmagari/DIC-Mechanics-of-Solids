@@ -1,8 +1,18 @@
 /* Square torsion measurements. All displayed DIC values come from image matches. */
 window.StereoLab=(()=>{
-  let api,loaded={},lastRun;const keys=['left_reference','right_reference','left_deformed','right_deformed'];
+  let api,previews,renderPending=false;const keys=['left_reference','right_reference','left_deformed','right_deformed'];
   const $=id=>api.$(id),cv=id=>api.canvas(id),fmt=(v,n=4)=>api.fmt(v,n),finite=Number.isFinite;
-  function init(dependencies){api=dependencies;$('stereoField').addEventListener('change',render);$('stereoRow').addEventListener('change',render);$('stereoImageMode').addEventListener('change',render);$('stereoPoints').addEventListener('change',render);}
+  function init(dependencies){
+    api=dependencies;
+    previews=StereoPreviews.create(()=>{
+      if(renderPending)return;
+      renderPending=true;requestAnimationFrame(()=>{renderPending=false;render();});
+    });
+    for(const id of ['stereoField','stereoRow','stereoImageMode','stereoPoints'])$(id).addEventListener('change',render);
+    for(const key of keys)$('stereoRetry_'+key).addEventListener('click',()=>{
+      previews.retry(key+($('stereoImageMode').value==='smoothed'?'_smoothed':''));
+    });
+  }
   function display(d){
     const c=d.config,s=d.summary;
     $('play').textContent='▶ Play';$('empty').hidden=true;$('state').className='state';$('state').textContent='Experiment complete';
@@ -25,12 +35,11 @@ window.StereoLab=(()=>{
     $('download').classList.remove('disabled');$('report').classList.remove('disabled');
     const smoothed=!!s.preprocessing?.kernel_radius_px;
     $('stereoImageMode').querySelector('[value="smoothed"]').disabled=!smoothed;
-    if(lastRun!==d.run_id){lastRun=d.run_id;loaded={};
+    if(previews.setRun(d.run_id,d.asset_prefix)){
       $('stereoImageMode').value=smoothed?'smoothed':'original';
       const rows=[...new Set(d.y_m)].sort((a,b)=>a-b);
       $('stereoRow').replaceChildren(...rows.map(y=>{const o=document.createElement('option');o.value=y;o.textContent=`y = ${fmt(y*1000,2)} mm`;return o;}));
       $('stereoRow').selectedIndex=Math.floor(rows.length/2);
-      for(const key of [...keys,...(smoothed?keys.map(k=>k+'_smoothed'):[])]){const im=new Image();im.onload=()=>{if(lastRun===d.run_id){loaded[key]=im;render();}};im.onerror=()=>{if(lastRun===d.run_id)$('stereoQuality').textContent='A camera image could not load. Reload the page; numerical results remain available.';};im.src=d.asset_prefix+key+'.png';}
     }
   }
   function render(){
@@ -40,8 +49,16 @@ window.StereoLab=(()=>{
     $('stereoPreprocessing').textContent=sigma>0
       ?`DIC used ${api.denoiseLabel(d.summary.preprocessing)} on all four images. Showing ${smoothed?'smoothed DIC inputs':'original camera images'}. Switching this preview does not change the measurements. Filtering excludes boundary-affected support; exact floating-point inputs are in the run download.`
       :'DIC denoising: Off. These original camera images were used for matching. Select a filter in DIC & imaging settings and run again to see smoothed inputs.';
+    previews.select(smoothed);
     for(const [k,key] of keys.entries()){
-      const {c,w,h}=cv('stereo_'+key),im=loaded[key+(smoothed?'_smoothed':'')];c.fillStyle='#eff2ee';c.fillRect(0,0,w,h);if(!im||w<=16||h<=16)continue;
+      const state=previews.get(key+(smoothed?'_smoothed':'')),im=state.image;
+      const status=$('stereoStatus_'+key),retry=$('stereoRetry_'+key);
+      status.hidden=state.status==='loaded';retry.hidden=state.status!=='error';
+      $('stereoStatusText_'+key).textContent=state.status==='error'
+        ?'Image could not load after 3 attempts. Measurement results are still available.'
+        :state.status==='retrying'?'Image request failed. Retrying…'
+        :state.status==='loading'&&state.attempts>1?`Retrying image (${state.attempts} / 3)…`:'Loading image…';
+      const {c,w,h}=cv('stereo_'+key);c.fillStyle='#eff2ee';c.fillRect(0,0,w,h);if(!im||w<=16||h<=16)continue;
       const scale=Math.min((w-16)/im.width,(h-16)/im.height),x=(w-im.width*scale)/2,y=(h-im.height*scale)/2;
       c.drawImage(im,x,y,im.width*scale,im.height*scale);
       // Payload coordinate order is L0,R0,L1,R1.
