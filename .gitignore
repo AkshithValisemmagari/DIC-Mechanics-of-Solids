@@ -8,3 +8,4 @@ venv/
 outputs/
 *.log
 node_modules/
+.vscode/
