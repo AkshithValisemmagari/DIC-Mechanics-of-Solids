@@ -1,0 +1,72 @@
+name: Build DIC Studio Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - distribution-build
+    paths:
+      - "dicstudio_app.py"
+      - ".github/workflows/build-windows.yml"
+      - "requirements.txt"
+      - "lab_server.py"
+      - "web/**"
+      - "*.py"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+
+      - name: Install application dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Build standalone Windows executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name "DIC Studio" --add-data "web;web" --hidden-import stereo_experiment --hidden-import torsion --hidden-import square_torsion --hidden-import noise_comparison --hidden-import stereo_camera --hidden-import stereo_dic --collect-all scipy --collect-all matplotlib --collect-all PIL dicstudio_app.py
+
+      - name: Add Windows instructions
+        shell: pwsh
+        run: |
+          @'
+          DIC STUDIO - WINDOWS VERSION
+
+          1. Extract this ZIP to a folder you can write to.
+          2. Double-click "DIC Studio.exe".
+          3. A console window will open and start the local DIC Studio server.
+          4. Your browser should open automatically. If it does not, open the
+             local URL printed in the console (normally http://127.0.0.1:8765).
+          5. Keep the console window open while using DIC Studio.
+          6. Press Ctrl+C in the console window to stop the application.
+
+          DIC Studio includes its Python runtime and required libraries.
+          A separate Python installation is not required.
+
+          Experiment files are saved under the user's Documents\DIC Studio folder.
+          The application runs locally; it does not require the Mac host or cloud server.
+          '@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DIC-Studio-Windows-x64
+          path: |
+            dist/DIC Studio.exe
+            dist/README-Windows.txt
+          if-no-files-found: error
+          retention-days: 14
