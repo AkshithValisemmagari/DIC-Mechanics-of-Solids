@@ -1,16 +1,19 @@
-**Agreed project — implementation map**
+**DIC Studio — current implementation map**
 
-Build → Encounter concept → Understand it → Implement → Validate.
+This map describes the current repository rather than the original seven-phase
+development plan. The batch runner retains three preset flat benchmarks; the
+interactive lab also supports pure bending and square-section stereo torsion.
 
-| Phase | Implemented in | Delivered outcome |
+| Capability | Implemented in | Scope |
 |---|---|---|
-| 1. Analytical ground truth | `mechanics.py`, `configs/` | Displacement, strain and stress for all three benchmarks |
-| 2. Synthetic DIC images | `speckle.py` | Seeded reference/deformed images with checked inverse warping |
-| 3. Recover displacement | `dic.py` | Integer ZNCC plus local affine subpixel refinement across a subset grid |
-| 4. Validate | `validation.py`, `tests/` | Matching-coordinate errors, coverage, failures and verification tests |
-| 5. Mechanical quantities | `strain.py`, `stress.py` | Displacement-derived strain, plane stress, principal and von Mises stress |
-| 6. Upgrade the problem | `mechanics.py`, three benchmark configs | Axial bar, cantilever end loading and infinite plate with hole |
-| 7. Robustness experiments | `experiments/robustness.py`, `configs/robustness.json` | 48 repeated trials varying five imaging/measurement factors |
+| Flat analytical mechanics | `mechanics.py`, `configs/` | Axial bar, cantilever, plate with a hole and pure bending |
+| Square-section torsion mechanics | `square_torsion.py` | Analytical square-shaft displacement, strain and stress fields |
+| Synthetic flat images and camera effects | `speckle.py`, `image_preprocessing.py` | Seeded texture, deformation warping, blur/noise and optional DIC denoising |
+| Flat DIC | `dic.py`, `dic_support.py` | Mask-aware subset matching, local affine subpixel refinement and optional forward/backward checks |
+| Synthetic stereo imaging and reconstruction | `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Four calibrated simulated views, image-based 3D reconstruction and visible-face strain |
+| Strain, stress and validation | `strain.py`, `stress.py`, `validation.py` | Displacement-derived strain, plane-stress inference and comparison with analytical truth |
+| Noise and robustness studies | `noise_comparison.py`, `experiments/robustness.py`, `configs/robustness.json` | Paired noise comparisons and a configured 48-trial one-factor-at-a-time study |
+| Interactive and batch workflows | `web/`, `lab_config.py`, `lab_server.py`, `pipeline.py`, `run_project.py` | Local browser lab, validated inputs, flat pipeline and three-preset batch runner |
 
 `pipeline.py` connects these components. `run_project.py` runs the complete
 project; `visualization.py` produces the reports and figures in `outputs/`.
@@ -21,10 +24,9 @@ interior maxima. The cantilever uses a consistent Saint-Venant elasticity
 benchmark, with local clamp effects excluded. See `METHODS.md` before presenting
 these results as a physical experiment.
 
-All agreed phases have working code and generated results. No placeholder
-modules remain. The interactive GUI is implemented in `web/`, `lab_config.py` and
-`lab_server.py`. The original flat-specimen scope excludes real camera
-calibration, large-deformation mechanics, general FEM, and machine learning. A
-later square-torsion extension implements synthetic stereo DIC with exact
-simulated camera calibration and front-face surface strain; it is not
-experimental stereo DIC.
+The flat workflow remains a small-deformation, plane-stress virtual laboratory;
+it is not a general FEM solver. Stereo torsion uses exact simulated camera
+calibration and measures the visible front face; it is not experimental stereo
+DIC. Real-camera calibration, general FEM, large-deformation mechanics and
+machine learning are outside the implemented scope. Generated outputs are
+written under `outputs/` and are not tracked in a clean checkout.
