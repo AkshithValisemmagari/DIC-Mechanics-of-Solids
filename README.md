@@ -5,14 +5,20 @@ turns them into synthetic speckle-image experiments, independently measures
 motion with subpixel Digital Image Correlation (DIC), recovers strain and
 stress, and quantifies errors and imaging robustness.
 
-All seven calculation phases are implemented, with a local interactive interface.
+The mechanics-to-measurement workflow is implemented, with a local interactive interface.
 Choose one object, material, geometry and load, then run that experiment.
 The five interactive specimens are axial bar, cantilever, plate with a hole,
 pure bending, and square-section torsion with synthetic stereo DIC.
 Measurement-line comparisons and paired noise experiments are available for
 flat specimens. Analytical circular-shaft torsion remains a backend module for
 compatibility; it is not a selectable specimen in the current interface.
-The archive also includes batch benchmark and robustness reports.
+The batch commands generate benchmark and robustness reports under `outputs/`.
+
+**Project report**
+
+The project report describes the mechanics models, synthetic image generation,
+flat and stereo DIC workflows, validation, results, and limitations. [Read the
+report](reports/DIC_MOS.pdf).
 
 **Start here**
 
@@ -33,9 +39,23 @@ the last completed run until you rerun. Controls are disabled during a calculati
 Camera noise and blur default to zero and are applied only at the chosen levels.
 Each run has a separate output folder and a **Download this run** ZIP export.
 
-**Install on your Mac**
+**Install**
 
-Use Python 3.10 or newer. In the terminal inside the project folder:
+Use Python 3.10 or newer. Create a virtual environment and install the runtime
+dependencies from the project folder.
+
+On Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Select `.venv\Scripts\python.exe` as the VS Code interpreter. If you prefer to
+activate the environment in PowerShell, run `.venv\Scripts\Activate.ps1` first
+and then use `python -m pip install -r requirements.txt`.
+
+On macOS or Linux:
 
 ```bash
 python3 -m venv .venv
@@ -44,8 +64,9 @@ python -m pip install -r requirements.txt
 ```
 
 Select `.venv/bin/python` as the VS Code interpreter. NumPy, SciPy, Matplotlib
-and Pillow are the only dependencies. SciPy implements image interpolation and
-optimization; OpenCV is not required. No internet is needed after installation.
+and Pillow are the only runtime dependencies. SciPy implements image
+interpolation and optimization; OpenCV is not required. No internet is needed
+after installation.
 
 **Run the project**
 
@@ -83,32 +104,14 @@ configuration. Images are saved to disk; no interactive plotting window opens.
 
 **Files and folders**
 
-| Path | Responsibility |
+| Entry point | Responsibility |
 |---|---|
-| `main.py` | Open the interactive lab; legacy batch flags still work |
-| `lab_server.py` | Local server, background experiment jobs and exports |
-| `lab_config.py` | Material presets, input checks and force-to-stress conversion |
-| `web/` | Browser interface, animated canvas and interactive field maps |
-| `run_project.py` | Command-line batch experiments |
-| `pipeline.py` | Connect all phases and save reproducible experiment outputs |
-| `mechanics.py` | Axial bar, cantilever, pure bending and Kirsch hole analytical fields |
-| `torsion.py` | Analytical solid circular-shaft torsion and exports |
-| `square_torsion.py`, `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Square-shaft mechanics, synthetic stereo imaging, image-only reconstruction and surface strain |
-| `noise_comparison.py` | Paired errors at common valid measurement centres |
-| `speckle.py` | Seeded speckles, physical calibration, inverse image warp and camera degradation |
-| `dic.py`, `dic_support.py` | Mask-aware affine matching and independent forward/backward verification |
-| `strain.py` | Local quadratic fits to the measured displacement field |
-| `stress.py` | Plane-stress elasticity, in-plane principal stresses and von Mises stress |
-| `validation.py` | Displacement/strain/stress errors, match failures and coverage |
-| `visualization.py` | Plots and browser-readable experiment reports |
-| `experiments/robustness.py` | Repeated, one-factor-at-a-time robustness studies |
-| `configs/` | All geometry, material, imaging, solver and study inputs |
-| `tests/` | Physics, image-processing, recovery and invalid-input checks |
-| `outputs/` | Generated images, raw measurements, ground truth, errors and reports |
-| `run_axial_1d.py` | Preserved simple Phase 1 example for learning the first component |
-| `METHODS.md` | Equations, coordinate conventions, limitations and references |
-| `ROADMAP.md` | Map of all seven implemented phases |
-| `RESULTS.md` | Historical numerical results and their interpretation limits |
+| `main.py`, `lab_server.py`, `web/` | Interactive browser lab and local API |
+| `run_project.py`, `pipeline.py` | Batch experiments and flat-DIC workflow |
+| `mechanics.py`, `speckle.py`, `dic.py`, `strain.py`, `stress.py`, `validation.py` | Core mechanics-to-measurement computation |
+| `square_torsion.py`, `stereo_camera.py`, `stereo_dic.py`, `stereo_experiment.py` | Synthetic stereo torsion workflow |
+| `configs/`, `experiments/`, `tests/` | Experiment inputs, robustness study and verification suite |
+| `outputs/` | Generated, locally retained experiment results; ignored by Git |
 
 **Reproducible development environment (optional)**
 
@@ -148,163 +151,36 @@ The supplied examples have physically specified deformation, not an undisclosed
 visual magnification. Loads are linear-elastic benchmark inputs, not a claim
 that any particular real material stays elastic at those stresses.
 
-**What each benchmark writes**
+**Outputs and scientific scope**
 
-| File | Contents |
-|---|---|
-| `report.html` | Visual report with measured statistics |
-| `reference.png`, `deformed.png` | Original 8-bit camera captures, preserved when denoising is enabled |
-| `reference_smoothed.png`, `deformed_smoothed.png` | 16-bit display previews when DIC denoising is enabled |
-| `dic_input_images.npz` | Exact floating-point filtered DIC inputs, saved when denoising is enabled |
-| `reference_mask.png`, `deformed_mask.png` | Geometric/valid interpolation support masks |
-| `config.json` | Exact settings for the run |
-| `ground_truth.npz` | Dense physical coordinates, analytical displacement, pixel sizes and reference mask |
-| `dic_displacements.csv` | Candidate centres, forward motion, affine gradients, ZNCC and final match status |
-| `dic_consistency.csv` | Per-candidate reverse outcome, reverse ZNCC and round-trip error (flat DIC) |
-| `mechanical_fields.csv` | Recovered and analytical strains/stresses; principal and von Mises results |
-| `errors.csv` | Signed differences at matching reference positions |
-| `summary.json` | RMSE, maximum errors, valid counts, failure rate and hole concentration comparison |
-| `images_and_error.png` | Image pair and displacement-error map |
-| `field_comparison.png` | Analytical, recovered and error maps |
+Runs save their exact configuration, summary statistics, measurement data and
+plots under `outputs/`. That directory is ignored by Git; use a new output
+folder to preserve earlier runs. See `RESULTS.md` for the reproducibility
+procedure.
 
-Invalid strain/stress entries are NaN in CSV files. Only valid measurements enter
-RMSE. The top card shows matched / eligible reference locations and their
-percentage. Expand “How match coverage is calculated” for mask exclusions
-and acceptance across all grid candidates. Eligible
-reference subsets fit fully inside the processed reference mask. These counts
-describe displacement; strain/stress fitting may retain fewer points. Stereo
-candidates already require full raw reference support, and additional points
-may fail after filtering or matching. Status codes and masks explain omitted measurements. `dic_displacements.csv`
-retains rejected optimizer estimates for diagnostics; use `valid == 1` when
-analyzing them. No zero-displacement percentage errors are used.
+The flat workflow uses local small-deformation plane-stress models. Stress is
+inferred from recovered strain and the configured elastic law. Square-torsion
+stereo uses exact simulated calibration to recover visible-face motion and
+surface strain; it is not experimental stereo DIC. The visual magnification
+changes the display only. See `METHODS.md` and `SQUARE_TORSION_STEREO.md` for
+assumptions and interpretation limits.
 
-**Flat-DIC consistency checks**
+**Detailed documentation**
 
-Forward matches now undergo an independent reverse match from the measured
-location in the deformed image back into the reference image. The default
-maximum return error is **0.3 px**, using the same filtered images and mask
-margins. Status 7 means the reverse match failed; status 8 means it returned to
-a different reference location. All earlier checks still apply. Failed forward
-estimates remain in the diagnostic CSV but are excluded from recovered fields.
+- `METHODS.md`: equations, coordinate conventions and constitutive assumptions.
+- `ROADMAP.md`: current implementation map and project scope.
+- `RESULTS.md`: historical results and instructions for producing current runs.
+- `REVIEW.md`, `CONSISTENCY_VALIDATION.md`: verification records and limitations.
+- `RESULTS_DASHBOARD.md`: result definitions and display rules.
+- `HOSTING.md`: local hosting, updates and deployment.
+- `tests/README.md`: Python, JavaScript, UI and browser test instructions.
 
-`summary.json` records the effective threshold and rejection counts;
-`dic_consistency.csv` records every reverse outcome. A batch configuration can
-set `dic.fb_tolerance_px` to `null` for a controlled forward-only comparison.
-The current website enables 0.3 px. A compact verification strip shows the
-existing tolerance and rejection counts; selecting a flat subset shows its
-existing return error, reverse correlation and rejection reason. These are
-presentation additions, not new acceptance rules. The server build is shown
-in the footer, and mobile jump links connect setup and results. Progress
-messages report actual calculation stages, not estimated point counts.
-Reverse checking adds a second fit for
-forward-accepted points and can increase runtime or reduce coverage. It cannot
-guarantee uniqueness for repeated texture. See `CONSISTENCY_VALIDATION.md` for
-measured checks and their limits. Stereo retains its existing cycle checks.
-
-**Readable measured results**
-
-Method & results now shows point counts, error tables and rejection reasons
-before the method explanation. Flat strain errors use microstrain and stress
-errors use MPa. Expand View component errors for individual components;
-Technical details retains the original JSON and a Copy JSON button. Coverage
-is not an accuracy rating, and combined stress error is not von Mises error.
-Stereo and analytical-only torsion retain their different interpretations.
-See `RESULTS_DASHBOARD.md` for display rules and verification scope.
-
-**Robustness study**
-
-The default runs 16 parameter settings × 3 independent noise seeds = 48 trials.
-It varies noise strength, Gaussian blur width, deformed-image brightness gain,
-subset size and speckle radius. The speckle realization is held fixed within
-each size setting; camera noise changes between repeats. Other studies have a
-small background noise level of 0.01 to avoid identical repeats. Zero-noise
-repeats are deterministic. These repeats quantify noise variability, not
-uncertainty over all possible speckle patterns.
-
-Open `outputs/robustness/report.html`. Raw trial and grouped results, settings,
-plots and the study's base configuration are saved alongside it.
-
-**Limits you should state when presenting**
-
-The flat-specimen workflow is a local, small-deformation, 2D plane-stress DIC
-laboratory, not a general FEM solver. A separate square-torsion workflow
-implements synthetic stereo DIC with exact simulated calibration and measures
-the visible front face; it is not a general experimental stereo-DIC system. The
-project is complete for its stated benchmarks and studies,
-but does not guarantee exact recovery. Finite pixels, interpolation, local
-shape functions, gradient fitting and noise all introduce measurable error.
-The hole-edge concentration factor is analytically 3; the measured interior
-maximum is reported separately because a finite subset cannot reach that edge.
-The cantilever's analytical field excludes local rigid-clamp effects. Full
-assumptions and interpretation are in `METHODS.md`.
-
-**Interactive controls and views**
-
-- Object: axial bar, end-loaded cantilever, plate with a hole, pure bending, or square-beam torsion with stereo DIC.
-- Material: illustrative aluminium, steel, copper and titanium properties, or custom E and nu. These are editable elastic-model inputs, not material certification.
-- Geometry: length, height/width, thickness and hole radius where applicable; all entered in mm.
-- Load: positive force for bar/plate/cantilever, signed end moment for pure bending, or signed torque for torsion. Zero-load runs are supported.
-- Camera: Gaussian noise, blur and brightness gain; speckle radius, coverage and seed.
-- DIC: subset size, grid spacing, search radius and strain-fit radius.
-- Animation: play/pause, load fraction and clearly labelled visual magnification. It shows analytical deformation; DIC results remain the actual full-load measurement.
-- Images: before/after view, adjustable overlay, clickable measured subsets and magnified crops. Image row displacement is positive downward.
-- Fields: analytical/recovered/error maps at actual valid centres, shared analytical/recovered colour scale, and an error scale centred at zero.
-- Results: numerical statistics, assumptions, exact run settings, a report and a downloadable run archive.
-
-The interface rejects inputs outside the local solver's intended range: more
-than 2% predicted strain, excessive displacement gradients, motion beyond the
-selected search window, invalid geometry, or insufficient strain-fit radius.
-These are numerical/model limits, not safety or elastic-yield limits for a real material.
-Force is converted with gross area (height × thickness) for bar/plate; the hole
-case remains an infinite-plate solution with an equivalent nominal load.
-
-Use a different local port if needed:
+**Use another local port**
 
 ```bash
 python main.py --port 8766
 ```
 
-The interactive server must remain running. Reloading the page restores the
-latest completed run while the same server is alive; restarting the server
-starts a fresh workspace. Saved run folders remain available on disk.
-See `REVIEW.md` for the methods review and verification scope.
-
-**3D stress colours**
-
-In Deformation, choose a 3D surface colour: von Mises stress (default), axial or transverse stress magnitude, shear stress magnitude, or Plain specimen. Blue indicates low stress and red high stress; the colour bar is in MPa and remains fixed at the full-load range during playback. The current sampled peak scales with the load fraction. Colours use analytical stress evaluated at display vertices, including the hole boundary, and are constant through thickness under the existing plane-stress model. Surface cells show average vertex magnitudes. Magnification changes geometry only. Red does not indicate failure. Signed stress and DIC comparisons remain in Field comparison.
-
-After an update, pull the complete repository, restart your configured lab server,
-and hard-refresh the browser. See `HOSTING.md`. Historical partial-update ZIP
-instructions are not the current installation procedure.
-
-
-**New experiment views**
-
-- **Measurement lines:** in Field comparison, choose a field, horizontal or vertical
-  direction, and a measured row/column. The graph overlays analytical values and
-  independently recovered DIC values. RMSE, maximum absolute error and point count
-  describe that line. Download its CSV. Gaps preserve invalid points and the hole.
-- **Paired noise:** set Gaussian noise above zero, enable **Compare with no added
-  noise**, then run. Noise comparison displays both camera images, recovered fields
-  on a shared colour scale and errors at common valid centres. Field comparison
-  adds the baseline curve. Both runs are in the downloaded ZIP. This requires two
-  DIC calculations, so expect roughly twice the calculation work. Noise remains
-  off by default; baseline still has quantization and any selected blur/brightness.
-- **Pure bending:** select the rectangular beam, material, dimensions and end moment
-  in N·m. Equal and opposite end moments produce constant bending moment and zero
-  shear force. Negative moment reverses bending. Use **Signed axial stress σxx**
-  for red tension, blue compression and a nearly white neutral axis. DIC, noise
-  comparisons and line profiles work for this case.
-- **Square torsion:** select material, square side, shaft length and torque in N·m.
-  Both ends rotate about a middle-section reference. Stereo DIC measures 3D
-  displacement and surface strain from four synthetic camera images. Interior
-  stress and the 3D preview remain analytical. See `SQUARE_TORSION_STEREO.md`.
-- **Legacy circular torsion:** `torsion.py` remains available through the backend
-  API for compatibility, with analytical curves and no image-based measurement.
-  The current specimen selector does not expose this mode.
-
-The visual magnification slider exaggerates deformation (rotation for torsion);
-reported numbers and stress colours use the actual load. The batch runner keeps
-its three original presets; pure bending and square torsion are selected in the interactive lab.
-See `METHODS.md` for equations, `REVIEW.md` for the verification record and
-`HOSTING.md` for updates/deployment. `EXPERIMENT_UPGRADE.md` is historical.
+Keep the terminal running while using the lab. Reloading restores the latest
+completed run while the same server is active; restarting the server starts a
+fresh workspace. See `HOSTING.md` for update and deployment instructions.

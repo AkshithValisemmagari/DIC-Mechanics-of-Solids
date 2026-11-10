@@ -6,6 +6,33 @@ are not included in Git. Treat these tables as historical records, not current
 verification evidence. Run the configured benchmarks to obtain fresh numbers;
 see `REVIEW.md` for the latest dated test record.
 
+## Reproducing current runs
+
+The command below runs the three configured batch benchmarks and the configured
+48-trial robustness study. Choose a new, unused output directory for each run;
+the runner replaces files in an existing selected output directory.
+
+```bash
+python run_project.py --output-dir outputs/reproduction-01 --robustness
+```
+
+Each benchmark output folder contains the exact `config.json` and its
+machine-readable `summary.json`, along with field-level CSV/NPZ data. The
+robustness folder contains its study settings and trial/grouped results. These
+outputs are ignored by Git, so retain the run folder or the downloaded run
+archive if the results need to be shared. A fresh run reproduces results for
+the current code and settings; it does not reproduce the historical tables
+above, which came from an earlier benchmark release.
+
+For a report-specific result, preserve the exact run configuration and result
+files alongside the report. Record the source revision (`git rev-parse HEAD`),
+Python version (`python --version`), installed Python packages
+(`python -m pip freeze`), operating system, command, and any non-default study
+settings. The generated `config.json` and `summary.json` preserve the experiment
+inputs and outputs, but do not by themselves identify the source revision or
+software environment. Do not replace a historical result with a regenerated
+value without updating its provenance and interpretation.
+
 | Benchmark | Displacement vector RMSE (px) | Strain component-vector RMSE | Stress component-vector RMSE (MPa) | Valid displacement subsets |
 |---|---:|---:|---:|---:|
 | axial_bar | 0.012747 | 0.00033298 | 26.310 | 308/308 |

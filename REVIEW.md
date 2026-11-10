@@ -1,6 +1,17 @@
 # Methods review and verification record
 
-## Current verification — 2026-11-04
+## Current source review — 2026-11-10
+
+The current tree includes the stereo-preview delivery path in
+`web/stereo-previews.js`, its deterministic checks in
+`tests/stereo_previews.cjs`, and browser scenarios documented in
+`tests/README.md`. The test instructions and CI workflow were inspected, but
+their commands were not run and remote CI results were not checked. To establish
+verification for this revision, follow `tests/README.md` and inspect the CI run
+for the commit being evaluated. The older test results below apply only to the
+revision and environment stated in that historical entry.
+
+## Historical verification — 2026-11-04
 
 This record applies to the UI-clarity follow-up based on main commit
 `e407fc0` (after the independent consistency update). Tests were executed against
