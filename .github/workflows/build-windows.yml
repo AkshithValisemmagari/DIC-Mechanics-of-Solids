@@ -43,23 +43,21 @@ jobs:
       - name: Add Windows instructions
         shell: pwsh
         run: |
-          @'
-          DIC STUDIO - WINDOWS VERSION
-
-          1. Extract this ZIP to a folder you can write to.
-          2. Double-click "DIC Studio.exe".
-          3. A console window will open and start the local DIC Studio server.
-          4. Your browser should open automatically. If it does not, open the
-             local URL printed in the console (normally http://127.0.0.1:8765).
-          5. Keep the console window open while using DIC Studio.
-          6. Press Ctrl+C in the console window to stop the application.
-
-          DIC Studio includes its Python runtime and required libraries.
-          A separate Python installation is not required.
-
-          Experiment files are saved under the user's Documents\DIC Studio folder.
-          The application runs locally; it does not require the Mac host or cloud server.
-          '@ | Set-Content -Encoding UTF8 dist/README-Windows.txt
+          $readme = @(
+            'DIC STUDIO - WINDOWS VERSION',
+            '',
+            '1. Extract this ZIP to a folder you can write to.',
+            '2. Double-click DIC Studio.exe.',
+            '3. A console window starts the local DIC Studio server.',
+            '4. Your browser should open automatically. If not, open the local URL printed in the console, normally http://127.0.0.1:8765.',
+            '5. Keep the console window open while using DIC Studio.',
+            '6. Press Ctrl+C in the console window to stop the application.',
+            '',
+            'DIC Studio includes its Python runtime and required libraries. Python does not need to be installed separately.',
+            'Experiment files are saved in the user Documents/DIC Studio folder.',
+            'The application runs locally and does not require the Mac host or cloud server.'
+          )
+          $readme | Set-Content -Encoding UTF8 dist/README-Windows.txt
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
